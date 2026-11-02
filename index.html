@@ -1,0 +1,1382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AWS × MVJCE · Full Throttle</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+
+<style>
+/* =========================================================
+   1. COLOURS  (change these to re-theme the whole site)
+      red = racing, amber = cloud
+   ========================================================= */
+:root{
+  --red:#ff2a3c;
+  --amber:#ffa31a;
+  --red-dark:#6d0010;
+  --black:#050505;
+  --panel:#0d0d10;
+  --white:#f4f4f4;
+  --muted:#9a9aa3;
+  --hot:linear-gradient(90deg,#ff2a3c,#ffa31a);
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--black);color:var(--white);font-family:'Space Grotesk',sans-serif;overflow-x:hidden}
+body:not(.entered){overflow:hidden}
+a{color:inherit;text-decoration:none}
+.grad{background:var(--hot);-webkit-background-clip:text;background-clip:text;color:transparent}
+
+/* =========================================================
+   2. INTRO : a swarm of particles turns into a cloud, a campus,
+      a car, then the start lights go out and the title appears
+   ========================================================= */
+#intro{
+  position:fixed;inset:0;z-index:1000;background:#000;overflow:hidden;
+  transition:opacity 1s ease, transform 1s ease, filter 1s ease;
+}
+#intro.done{opacity:0;transform:scale(1.5);filter:blur(14px);pointer-events:none}
+#intro.go{animation:shake .5s linear}
+@keyframes shake{0%,100%{transform:none}15%{transform:translate(-8px,4px)}30%{transform:translate(7px,-5px)}45%{transform:translate(-5px,-3px)}60%{transform:translate(5px,4px)}80%{transform:translate(-2px,2px)}}
+#ic{position:absolute;inset:0;z-index:2}
+
+/* spotlights */
+.beam{position:absolute;top:-6vh;left:50%;width:46vmax;height:135vh;margin-left:-23vmax;transform-origin:50% 0;
+  clip-path:polygon(47% 0,53% 0,100% 100%,0 100%);
+  background:linear-gradient(to bottom,rgba(255,60,70,.9) 0%,rgba(255,40,50,.3) 45%,rgba(255,0,20,0) 100%);
+  filter:blur(5px);mix-blend-mode:screen;opacity:.3;will-change:transform,opacity;z-index:1}
+.beam.b2{background:linear-gradient(to bottom,rgba(255,170,40,.85) 0%,rgba(255,150,30,.25) 45%,rgba(255,120,0,0) 100%)}
+.lamp{position:absolute;top:-10px;left:50%;width:90px;height:30px;margin-left:-45px;background:radial-gradient(ellipse,rgba(255,200,160,.9),transparent 70%);filter:blur(4px)}
+.vignette{position:absolute;inset:0;pointer-events:none;z-index:3;background:radial-gradient(ellipse at center,transparent 38%,rgba(0,0,0,.92) 100%)}
+
+/* showroom floor line */
+.floorline{position:absolute;left:0;right:0;top:var(--floor,60vh);height:1px;z-index:1;opacity:0;transition:opacity 1.2s;
+  background:linear-gradient(90deg,transparent,rgba(255,60,70,.9) 30%,rgba(255,170,30,.9) 70%,transparent);box-shadow:0 0 30px 4px rgba(255,60,70,.35)}
+.floorglow{position:absolute;left:50%;top:var(--floor,60vh);width:110vmax;height:40vh;transform:translate(-50%,-50%);z-index:1;opacity:0;transition:opacity 1.4s;
+  background:radial-gradient(ellipse at center,rgba(255,50,60,.28),transparent 62%)}
+#intro.shapes .floorline,#intro.shapes .floorglow{opacity:1}
+
+/* start-lights gantry */
+.gantry{position:absolute;top:7vh;left:50%;transform:translateX(-50%) translateY(-30px);z-index:6;display:flex;gap:clamp(8px,2vw,22px);opacity:0;transition:opacity .5s,transform .7s}
+.gantry::before{content:"";position:absolute;left:-30px;right:-30px;top:-28px;height:10px;background:#111;border:1px solid #2a2a2a;border-radius:4px}
+.col{display:flex;flex-direction:column;gap:8px;padding:10px 8px;background:#0a0a0a;border:1px solid #2a2a2a;border-radius:8px;position:relative}
+.col::before{content:"";position:absolute;left:50%;top:-18px;width:2px;height:18px;background:#2a2a2a}
+.bulb{width:clamp(24px,5vw,50px);aspect-ratio:1;border-radius:50%;background:#1a0306;box-shadow:inset 0 0 8px #000;transition:background .08s,box-shadow .08s}
+.col.on .bulb{background:radial-gradient(circle at 35% 30%,#ffb0b6,#ff2a3c 45%,#a00010);box-shadow:0 0 22px 6px rgba(255,42,60,.8),0 0 80px 20px rgba(255,42,60,.35)}
+#intro.lights .gantry{opacity:1;transform:translateX(-50%)}
+#intro.go .gantry{opacity:0;transform:translateX(-50%) translateY(-40px)}
+
+/* loader (centre-bottom) */
+.loader{position:absolute;z-index:6;left:50%;bottom:9vh;transform:translateX(-50%);text-align:center;width:min(92vw,560px);transition:opacity .5s}
+#intro.started .loader{opacity:0;pointer-events:none}
+.loader .lab{font:11px var(--mono);letter-spacing:.4em;color:var(--muted)}
+.loader .pct{font-family:'Bebas Neue';font-size:clamp(3.4rem,11vw,6.5rem);line-height:1;margin:4px 0 14px;background:var(--hot);-webkit-background-clip:text;background-clip:text;color:transparent}
+.btns{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;opacity:0;pointer-events:none;transform:translateY(10px);transition:all .8s;height:0;overflow:visible}
+#intro.loaded .btns{opacity:1;pointer-events:auto;transform:none;height:auto}
+#intro.loaded .pct{font-size:clamp(1.6rem,4vw,2.4rem);margin-bottom:16px}
+.sbtn{padding:15px 28px;border:1px solid var(--red);background:rgba(0,0,0,.5);color:var(--white);font-family:'Space Grotesk';font-weight:700;letter-spacing:.26em;font-size:.7rem;cursor:pointer;
+  clip-path:polygon(12px 0,100% 0,calc(100% - 12px) 100%,0 100%);transition:all .3s}
+.sbtn.fill{background:var(--hot);border-color:transparent;color:#120004}
+.sbtn:hover{filter:brightness(1.3);box-shadow:0 0 30px var(--red)}
+#intro.loaded .sbtn.fill{animation:pulse 1.8s infinite}
+@keyframes pulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.35)}}
+.bar{position:absolute;left:0;bottom:0;height:3px;width:0;background:var(--hot);z-index:6;box-shadow:0 0 14px var(--red);transition:opacity .6s}
+#intro.started .bar{opacity:0}
+
+/* corner info */
+.boot{position:absolute;left:5vw;top:5vh;z-index:6;font:12px/1.9 var(--mono);letter-spacing:.08em;color:var(--red);transition:opacity .6s}
+.boot div{animation:typein .4s steps(12) both}
+@keyframes typein{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:none}}
+#intro.started .boot{opacity:0}
+.tele{position:absolute;right:5vw;top:5vh;z-index:6;font:11px/1.9 var(--mono);letter-spacing:.2em;color:var(--muted);text-align:right}
+.tele b{color:var(--amber);font-weight:400}
+.skip{position:absolute;right:5vw;bottom:4vh;z-index:9;font:11px var(--mono);letter-spacing:.3em;color:var(--muted);cursor:pointer;background:none;border:0;opacity:0;transition:opacity .5s}
+#intro.started .skip{opacity:1}
+.skip:hover{color:var(--white)}
+
+/* scene caption */
+.cap1{position:absolute;left:5vw;bottom:8vh;z-index:6;max-width:min(80vw,640px);pointer-events:none;opacity:0}
+.cap1.show{opacity:1}
+.cap1 .no{font:12px var(--mono);letter-spacing:.45em;color:var(--amber);margin-bottom:8px}
+.cap1 h3{font-family:'Bebas Neue';font-weight:400;font-size:clamp(2.6rem,7.5vw,5.8rem);line-height:.88;text-shadow:0 0 40px rgba(255,42,60,.5)}
+.cap1 p{margin-top:10px;font-size:clamp(.75rem,1.6vw,1rem);color:var(--muted);letter-spacing:.12em}
+.cap1.swap>*{animation:capin .8s cubic-bezier(.2,.9,.2,1) both}
+.cap1.swap h3{animation-delay:.08s}.cap1.swap p{animation-delay:.18s}
+@keyframes capin{from{opacity:0;transform:translateX(-50px) skewX(-14deg)}to{opacity:1;transform:none}}
+.dots{position:absolute;right:5vw;bottom:9vh;z-index:6;display:flex;gap:8px;opacity:0;transition:opacity .5s}
+.dots.show{opacity:1}
+.dots i{width:26px;height:3px;background:#2a2a2a;transition:background .4s}
+.dots i.on{background:var(--hot)}
+#intro.out .cap1,#intro.out .dots{opacity:0}
+
+/* LIGHTS OUT message + title */
+.msg{position:absolute;z-index:9;left:50%;top:41%;transform:translate(-50%,-50%) skewX(-10deg);font-family:'Bebas Neue';font-size:clamp(3rem,12vw,9rem);white-space:nowrap;color:#fff;text-shadow:0 0 50px var(--red),0 0 12px var(--red);opacity:0;pointer-events:none}
+.msg small{display:block;text-align:center;font-family:'Space Grotesk';font-size:clamp(.6rem,1.6vw,1rem);letter-spacing:.6em;color:var(--amber)}
+#intro.out .msg{animation:msg 1.2s ease-out}
+@keyframes msg{0%{opacity:0;transform:translate(-50%,-50%) skewX(-10deg) scale(.6)}15%{opacity:1;transform:translate(-50%,-50%) skewX(-10deg) scale(1.04)}65%{opacity:1}100%{opacity:0;transform:translate(-50%,-50%) skewX(-10deg) scale(1.7)}}
+.endcard{position:absolute;z-index:6;left:0;right:0;bottom:8vh;text-align:center;opacity:0;transition:opacity 1s .4s;pointer-events:none}
+#intro.lit .endcard{opacity:1}
+#intro.lit .endcard #enter{pointer-events:auto}
+.tag{font-size:clamp(.65rem,1.8vw,.9rem);letter-spacing:.45em;color:var(--muted)}
+#enter{margin-top:22px;padding:14px 38px;border:1px solid var(--red);background:rgba(0,0,0,.5);color:var(--white);font-family:'Space Grotesk';font-weight:700;letter-spacing:.35em;font-size:.78rem;cursor:pointer;
+  clip-path:polygon(12px 0,100% 0,calc(100% - 12px) 100%,0 100%);transition:all .3s}
+#enter:hover{background:var(--hot);color:#120004}
+.flash{position:absolute;inset:0;z-index:8;background:rgba(255,225,215,.92);opacity:0;pointer-events:none}
+#intro.go .flash{animation:flash .8s ease-out}
+@keyframes flash{0%{opacity:.95}100%{opacity:0}}
+.wave{position:absolute;left:50%;top:41%;width:30vmax;height:30vmax;margin:-15vmax 0 0 -15vmax;border-radius:50%;z-index:4;opacity:0;pointer-events:none;background:radial-gradient(circle,transparent 58%,rgba(255,60,70,.9) 60%,transparent 63%)}
+#intro.go .wave,#intro.lit .wave{animation:wave 1.8s ease-out .1s}
+#intro.go .wave.w2,#intro.lit .wave.w2{animation-delay:.4s}
+@keyframes wave{0%{opacity:.9;transform:scale(0)}100%{opacity:0;transform:scale(3.6)}}
+.scan{position:absolute;inset:0;z-index:7;pointer-events:none;overflow:hidden;background:repeating-linear-gradient(to bottom,rgba(0,0,0,.2) 0 1px,transparent 1px 3px)}
+.scan::after{content:"";position:absolute;left:0;right:0;height:140px;top:-140px;background:linear-gradient(to bottom,transparent,rgba(255,42,60,.1),transparent);animation:scanmove 4.5s linear infinite}
+@keyframes scanmove{to{top:100%}}
+
+/* =========================================================
+   3. SITE CHROME : spotlight, sector bar, nav
+   ========================================================= */
+#dust{position:fixed;inset:0;z-index:0;pointer-events:none}
+#spot{position:fixed;inset:0;z-index:60;pointer-events:none;--x:50vw;--y:50vh;
+  background:radial-gradient(circle 280px at var(--x) var(--y),rgba(255,60,50,.12),transparent 70%),radial-gradient(circle 340px at var(--x) var(--y),transparent 0%,rgba(0,0,0,.5) 100%);transition:opacity .5s}
+body:not(.entered) #spot,body.nospot #spot{opacity:0}
+body.instory #spot{opacity:.4}
+#sectors{position:fixed;top:0;left:0;right:0;z-index:90;display:flex;gap:4px;padding:0 4px;opacity:0;transition:opacity .8s}
+body.entered #sectors{opacity:1}
+.sec{flex:1;height:4px;background:#1c1c1c;position:relative}
+.sec i{position:absolute;left:0;top:0;bottom:0;width:0;background:var(--hot);box-shadow:0 0 10px var(--red)}
+nav{position:fixed;top:4px;left:0;right:0;z-index:70;display:flex;justify-content:space-between;align-items:center;padding:16px 5vw;background:linear-gradient(to bottom,rgba(5,5,5,.92),transparent);transform:translateY(-110%);transition:transform .9s ease .4s}
+body.entered nav{transform:none}
+.logo{font-family:'Bebas Neue';font-size:1.7rem;letter-spacing:.08em}
+.logo span{color:var(--amber)}
+.links{display:flex;gap:22px;align-items:center;font-size:.74rem;letter-spacing:.2em;text-transform:uppercase}
+.links a{position:relative;color:var(--muted);transition:color .3s}
+.links a:hover{color:var(--white)}
+.links a::after{content:"";position:absolute;left:0;bottom:-6px;height:2px;width:0;background:var(--hot);transition:width .3s}
+.links a:hover::after{width:100%}
+.lap{font:11px var(--mono);letter-spacing:.14em;color:var(--white);border:1px solid var(--red-dark);padding:7px 11px;background:rgba(0,0,0,.5)}
+.lap em{font-style:normal;color:var(--amber);margin-right:6px}
+#toggle{background:transparent;border:1px solid var(--red-dark);color:var(--white);padding:7px 14px;font:inherit;font-size:.68rem;letter-spacing:.2em;cursor:pointer;text-transform:uppercase}
+#toggle:hover{border-color:var(--red)}
+body.nospot #toggle{opacity:.55}
+
+/* =========================================================
+   4. SECTIONS
+   ========================================================= */
+section{position:relative;z-index:2;padding:110px 6vw}
+.eyebrow{font-size:.75rem;letter-spacing:.45em;color:var(--amber);text-transform:uppercase;margin-bottom:18px;display:flex;align-items:center}
+.eyebrow::before{content:"";width:34px;height:10px;background:var(--hot);transform:skewX(-30deg);margin-right:14px;flex:none}
+h2{font-family:'Bebas Neue';font-weight:400;font-size:clamp(2.8rem,8vw,6rem);line-height:.95;margin-bottom:26px}
+h2 em{font-style:normal;background:var(--hot);-webkit-background-clip:text;background-clip:text;color:transparent}
+.lead{max-width:560px;color:var(--muted);line-height:1.75}
+.reveal{opacity:0;transform:translateY(50px);transition:opacity 1s ease,transform 1s ease;transition-delay:var(--d,0s)}
+.reveal.in{opacity:1;transform:none}
+.btn{display:inline-block;margin-top:34px;padding:16px 40px;background:var(--hot);color:#140005;font-weight:700;letter-spacing:.25em;font-size:.78rem;text-transform:uppercase;
+  clip-path:polygon(14px 0,100% 0,calc(100% - 14px) 100%,0 100%);transition:transform .3s,filter .3s}
+.btn:hover{transform:translateY(-3px);filter:brightness(1.2)}
+.btn.ghost{background:rgba(255,42,60,.14);color:var(--white);margin-left:14px}
+.flag{position:relative;z-index:2;height:36px;background:conic-gradient(#f2f2f2 25%,#050505 0 50%,#f2f2f2 0 75%,#050505 0) 0 0/36px 36px;opacity:.9;border-block:1px solid #222}
+
+/* ----- SCROLL STORY (3D race car) ----- */
+#story{height:600vh;padding:0;background:var(--black)}
+.pin{position:sticky;top:0;height:100vh;overflow:hidden}
+#storyCv{position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none}
+.word{position:absolute;top:50%;z-index:1;transform:translateY(-50%);font-family:'Bebas Neue';font-size:clamp(3rem,9.5vw,8.5rem);line-height:.9;white-space:nowrap;will-change:transform,opacity}
+.wl{left:4vw}
+.wr{right:4vw;background:var(--hot);-webkit-background-clip:text;background-clip:text;color:transparent}
+.cap{position:absolute;z-index:4;font-size:.68rem;letter-spacing:.32em;color:var(--muted);line-height:1.8}
+.capl{left:4vw;bottom:30vh}
+.capr{right:4vw;top:22vh;text-align:right}
+.msgbox{position:absolute;left:0;right:0;top:19vh;text-align:center;z-index:3;opacity:0;pointer-events:none;padding:0 4vw}
+.msgbox .small{font-size:.7rem;letter-spacing:.45em;color:var(--amber);margin-bottom:12px}
+.msgbox .bl{font-family:'Bebas Neue';font-size:clamp(2.4rem,8vw,6.4rem);line-height:.9}
+.msgbox .bl.r{background:var(--hot);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hud{position:absolute;z-index:4;bottom:14vh;font-family:'Bebas Neue';line-height:1}
+.hud b{font-weight:400;font-size:clamp(3rem,8vw,6rem);display:block}
+.hud small{display:block;font-family:'Space Grotesk';font-size:.62rem;letter-spacing:.4em;color:var(--muted);margin-top:4px}
+.hud.l{left:4vw}
+.hud.r{right:4vw;text-align:right}
+.hud.r b{color:var(--amber)}
+.leds{position:absolute;z-index:4;left:50%;bottom:14vh;transform:translateX(-50%);display:flex;gap:clamp(4px,.9vw,9px)}
+.leds i{width:clamp(10px,2vw,20px);aspect-ratio:1;border-radius:50%;background:#1a1a1a;transition:background .06s,box-shadow .06s}
+.leds i.on{background:var(--red);box-shadow:0 0 12px var(--red)}
+.leds i.on:nth-child(n+6){background:var(--amber);box-shadow:0 0 12px var(--amber)}
+.leds i.on:nth-child(n+12){background:#fff;box-shadow:0 0 14px #fff}
+.shint{position:absolute;left:50%;bottom:24vh;transform:translateX(-50%);z-index:4;font-size:.7rem;letter-spacing:.4em;color:var(--muted);text-align:center}
+.shint::after{content:"";display:block;width:1px;height:40px;background:var(--red);margin:10px auto 0;animation:drop 1.8s infinite}
+@keyframes drop{0%{transform:scaleY(0);transform-origin:top}50%{transform:scaleY(1);transform-origin:top}51%{transform-origin:bottom}100%{transform:scaleY(0);transform-origin:bottom}}
+.strip{position:absolute;left:0;right:0;bottom:0;z-index:5;overflow:hidden;border-top:1px solid #222;background:rgba(0,0,0,.75);padding:11px 0}
+.track2{display:flex;width:max-content;animation:slide 45s linear infinite}
+.track2 span{font-size:.72rem;letter-spacing:.35em;color:var(--muted);padding:0 22px;white-space:nowrap}
+.track2 span:nth-child(even){color:var(--amber)}
+@keyframes slide{to{transform:translateX(-50%)}}
+
+/* HERO */
+#home{min-height:100vh;display:flex;flex-direction:column;justify-content:center;padding-top:130px}
+#home h1{font-family:'Bebas Neue';font-weight:400;font-size:clamp(3.4rem,13vw,11rem);line-height:.88;letter-spacing:.01em}
+#home h1 .r{background:var(--hot);-webkit-background-clip:text;background-clip:text;color:transparent}
+#home p{max-width:520px;margin-top:28px;color:var(--muted);line-height:1.7}
+
+/* ticker */
+.marquee{position:relative;z-index:2;overflow:hidden;border-block:1px solid #222;background:rgba(255,163,26,.05);padding:14px 0}
+.track{display:flex;width:max-content;animation:slide 30s linear infinite}
+.track span{font-family:'Bebas Neue';font-size:1.9rem;letter-spacing:.12em;padding:0 26px;color:var(--white)}
+.track span i{font-style:normal;color:var(--amber);margin-right:10px;font-size:1.3rem}
+
+/* ABOUT */
+.about-grid{display:grid;grid-template-columns:1.2fr 1fr;gap:60px;align-items:center}
+.about-grid p{color:var(--muted);line-height:1.8;margin-bottom:16px}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.stat{border:1px solid #222;border-left:4px solid var(--red);background:var(--panel);padding:30px 22px;position:relative;overflow:hidden}
+.stat::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 0 0,rgba(255,60,50,.22),transparent 60%)}
+.stat b{position:relative;font-family:'Bebas Neue';font-weight:400;font-size:3.6rem;color:var(--amber);display:block;line-height:1}
+.stat span{position:relative;font-size:.7rem;letter-spacing:.3em;color:var(--muted);text-transform:uppercase}
+
+/* ----- THE GARAGE : cars that stand for AWS services ----- */
+.garage{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:40px}
+.gcar{position:relative;border:1px solid #222;background:linear-gradient(170deg,#141418,#08080a);padding:22px 22px 26px;overflow:hidden;transition:border-color .3s,transform .4s}
+.gcar:hover{border-color:var(--red);transform:translateY(-6px)}
+.gcar::before{content:"";position:absolute;left:-20%;right:-20%;top:-40%;height:70%;background:radial-gradient(ellipse,rgba(255,163,26,.18),transparent 65%);pointer-events:none}
+.gtag{font:10px var(--mono);letter-spacing:.35em;color:var(--amber)}
+.gcar h3{font-family:'Bebas Neue';font-weight:400;font-size:2.2rem;letter-spacing:.04em;margin:4px 0 0}
+.gcar svg{width:100%;display:block;margin:6px 0 4px;overflow:visible}
+.gcar p{font-size:.85rem;color:var(--muted);line-height:1.65;min-height:4.2em}
+.car-body{transition:transform .5s cubic-bezier(.2,.8,.2,1)}
+.gcar:hover .car-body{transform:translateX(10px)}
+.wh{animation:spinw 1.1s linear infinite;transform-box:fill-box;transform-origin:center}
+.gcar:hover .wh{animation-duration:.25s}
+@keyframes spinw{to{transform:rotate(360deg)}}
+.road{stroke-dasharray:26 20;animation:road 1s linear infinite}
+.gcar:hover .road{animation-duration:.3s}
+@keyframes road{to{stroke-dashoffset:46}}
+.beamS{opacity:.25;transition:opacity .4s}
+.gcar:hover .beamS{opacity:1}
+.meters{margin-top:14px;display:grid;gap:9px}
+.meter{display:grid;grid-template-columns:78px 1fr;gap:10px;align-items:center;font:10px var(--mono);letter-spacing:.22em;color:var(--muted)}
+.meter div{height:4px;background:#222;position:relative;overflow:hidden}
+.meter div i{position:absolute;left:0;top:0;bottom:0;width:0;background:var(--hot);transition:width 1.4s cubic-bezier(.2,.8,.2,1) .3s}
+.gcar.in .meter div i{width:var(--w)}
+
+/* ----- THE CLOUD : architecture diagram + terminal ----- */
+.cloud-grid{display:grid;grid-template-columns:1.5fr 1fr;gap:26px;margin-top:40px;align-items:stretch}
+.diagram{border:1px solid #222;background:linear-gradient(170deg,#101014,#07070a);padding:14px;position:relative}
+.diagram svg{width:100%;display:block}
+.node rect{fill:#0c0c10;stroke:var(--amber);stroke-width:1.4;transition:all .3s}
+.node:hover rect,.node.on rect{fill:#1a0f06;stroke:#fff;filter:drop-shadow(0 0 12px rgba(255,163,26,.8))}
+.node text{font-family:'Bebas Neue';fill:#f4f4f4;font-size:22px;letter-spacing:.05em}
+.node text.s{font-family:'Space Grotesk';fill:#9a9aa3;font-size:11px;letter-spacing:.14em}
+.node{cursor:pointer}
+.edge{fill:none;stroke:#ff2a3c;stroke-width:1.6;stroke-dasharray:6 8;opacity:.7;animation:flow 1.2s linear infinite}
+@keyframes flow{to{stroke-dashoffset:-28}}
+.info{margin-top:12px;border-top:1px solid #222;padding-top:12px;font-size:.88rem;color:var(--muted);line-height:1.6;min-height:5.2em}
+.info b{color:var(--amber);font-family:'Bebas Neue';font-weight:400;font-size:1.3rem;letter-spacing:.08em;margin-right:8px}
+.term{border:1px solid #222;background:#050507;font:12.5px/1.85 var(--mono);color:#d9d9e0;display:flex;flex-direction:column}
+.term .bar2{display:flex;gap:7px;align-items:center;padding:11px 14px;border-bottom:1px solid #1c1c20;font-size:10px;letter-spacing:.25em;color:var(--muted)}
+.term .bar2 i{width:10px;height:10px;border-radius:50%;background:#2a2a2e}
+.term .bar2 i:nth-child(1){background:var(--red)}.term .bar2 i:nth-child(2){background:var(--amber)}
+.term pre{padding:16px 18px;white-space:pre-wrap;word-break:break-word;flex:1;min-height:250px}
+.term .p{color:var(--amber)}.term .ok{color:#4ade80}.term .c{color:#6b6b75}
+.term .cur{display:inline-block;width:8px;height:15px;background:var(--amber);vertical-align:-2px;animation:blink 1s steps(2) infinite}
+@keyframes blink{50%{opacity:0}}
+.note{padding:0 18px 14px;font-size:.72rem;color:#6b6b75;line-height:1.6}
+
+/* ----- CAMPUS + CLUBS ----- */
+.campus-top{display:grid;grid-template-columns:1.1fr 1fr;gap:40px;align-items:center}
+.building svg{width:100%;max-width:520px;display:block;margin:0 auto;overflow:visible;filter:drop-shadow(0 0 18px rgba(255,60,50,.35))}
+.building path,.building line,.building rect,.building polygon{fill:none;stroke:url(#bgrad);stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:1;stroke-dashoffset:1}
+.building.in path,.building.in line,.building.in rect,.building.in polygon{animation:draw 2.4s ease forwards}
+.building.in *:nth-child(3n){animation-delay:.3s}.building.in *:nth-child(3n+1){animation-delay:.6s}
+@keyframes draw{to{stroke-dashoffset:0}}
+.building .flagc{fill:var(--amber);stroke:none;stroke-dasharray:none;stroke-dashoffset:0;opacity:0}
+.building.in .flagc{animation:fadein 1s 2s forwards}
+@keyframes fadein{to{opacity:1}}
+.clubs{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-top:46px}
+.club{position:relative;border:1px solid #222;background:var(--panel);padding:22px 16px 20px;overflow:hidden;transition:border-color .3s,transform .4s}
+.club:hover{border-color:var(--amber);transform:translateY(-6px)}
+.club .no{font:10px var(--mono);letter-spacing:.3em;color:var(--muted)}
+.club h4{font-family:'Bebas Neue';font-weight:400;font-size:1.7rem;letter-spacing:.05em;margin:8px 0 6px;line-height:1}
+.club p{font-size:.78rem;color:var(--muted);line-height:1.55}
+.club.me{border-color:var(--red);background:linear-gradient(170deg,#1c0a0e,#0d0d10)}
+.club.me::after{content:"YOU ARE HERE";position:absolute;right:-30px;top:12px;background:var(--hot);color:#140005;font:700 8px var(--mono);letter-spacing:.2em;padding:3px 34px;transform:rotate(35deg)}
+.gallery{display:grid;grid-template-columns:repeat(3,1fr);grid-auto-rows:230px;gap:16px;margin-top:46px}
+.tile{position:relative;border:1px solid #222;overflow:hidden;background:var(--panel);transition:border-color .3s}
+.tile:hover{border-color:var(--red)}
+.tile.big{grid-row:span 2}
+.ph{position:relative;width:100%;height:100%;overflow:hidden;background:linear-gradient(160deg,#2a0a0a,#0a0a0a);display:flex;align-items:center;justify-content:center}
+.ph::after{content:attr(data-name);font-size:.55rem;letter-spacing:.2em;color:var(--muted);text-align:center;padding:8px;word-break:break-all}
+.ph::before{content:"";position:absolute;inset:0;z-index:2;pointer-events:none;background:linear-gradient(to top,rgba(255,60,50,.4),transparent 60%)}
+.ph img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:1;transition:transform .7s ease}
+.tile:hover .ph img{transform:scale(1.1)}
+.tile figcaption{position:absolute;left:16px;bottom:12px;z-index:3;font-family:'Bebas Neue';font-size:1.5rem;letter-spacing:.1em}
+
+/* ----- 3D RACE WEEKEND ----- */
+#orbit{text-align:center;overflow:hidden}
+#orbit .eyebrow{justify-content:center}
+.stage{height:480px;perspective:1300px;margin-top:30px;cursor:grab;touch-action:pan-y;user-select:none;display:flex;align-items:center;justify-content:center}
+.stage:active{cursor:grabbing}
+#ring{position:relative;width:250px;height:330px;transform-style:preserve-3d}
+.card{position:absolute;inset:0;background:linear-gradient(160deg,#171719,#0a0a0c);border:1px solid #2a2a2a;border-top:4px solid var(--red);padding:24px 22px;text-align:left;backface-visibility:hidden;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden;--mx:50%;--my:50%}
+.card::before{content:"";position:absolute;inset:0;background:radial-gradient(circle 150px at var(--mx) var(--my),rgba(255,120,40,.35),transparent 70%);opacity:0;transition:opacity .3s}
+.card:hover::before{opacity:1}
+.card:hover{border-color:var(--amber)}
+.card .n{font-family:'Bebas Neue';font-size:3rem;color:var(--amber);line-height:1;position:relative}
+.card .n small{display:block;font:10px var(--mono);letter-spacing:.3em;color:var(--muted)}
+.card h3{font-family:'Bebas Neue';font-weight:400;font-size:2rem;letter-spacing:.04em;margin-bottom:8px;position:relative}
+.card p{font-size:.85rem;color:var(--muted);line-height:1.6;position:relative}
+.hint{margin-top:10px;font-size:.7rem;letter-spacing:.4em;color:var(--muted)}
+
+/* ----- JOIN ----- */
+#join{text-align:center;padding-bottom:160px}
+#join .eyebrow{justify-content:center}
+#join h2{font-size:clamp(3.2rem,12vw,9rem)}
+#join p{color:var(--muted);max-width:480px;margin:0 auto}
+.lights5{display:flex;justify-content:center;gap:12px;margin:0 auto 34px}
+.lights5 i{width:clamp(22px,5vw,38px);aspect-ratio:1;border-radius:50%;background:#1a0306;border:1px solid #2a2a2a;animation:l5 6s infinite}
+.lights5 i:nth-child(2){animation-delay:.5s}.lights5 i:nth-child(3){animation-delay:1s}.lights5 i:nth-child(4){animation-delay:1.5s}.lights5 i:nth-child(5){animation-delay:2s}
+@keyframes l5{0%,6%{background:#1a0306;box-shadow:none}8%,62%{background:var(--red);box-shadow:0 0 24px 4px rgba(255,42,60,.8)}66%,100%{background:#1a0306;box-shadow:none}}
+footer{position:relative;z-index:2;border-top:1px solid #1c1c1c;padding:30px 6vw;display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;font-size:.75rem;letter-spacing:.2em;color:var(--muted)}
+
+@media (max-width:1000px){
+  .garage{grid-template-columns:1fr}
+  .cloud-grid,.campus-top{grid-template-columns:1fr}
+  .clubs{grid-template-columns:repeat(2,1fr)}
+}
+@media (max-width:800px){
+  .about-grid{grid-template-columns:1fr;gap:40px}
+  .links a{display:none}
+  #toggle{display:none}
+  .stage{height:430px}
+  .btn.ghost{margin:14px 0 0}
+  #spot{display:none}
+  .gallery{grid-template-columns:1fr 1fr;grid-auto-rows:170px}
+  .tile.big{grid-column:span 2;grid-row:span 1}
+  .wl{top:30%}.wr{top:70%}
+  .capl{bottom:34vh}.capr{top:15vh}
+  .msgbox{top:15vh}
+  .tele{display:none}
+  .boot{font-size:10px}
+  .cap1{bottom:15vh}
+  .dots{bottom:5vh;right:50%;transform:translateX(50%)}
+}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms !important;transition-duration:.01ms !important}}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+
+<body>
+
+<!-- ========================= INTRO ========================= -->
+<div id="intro">
+  <div class="beam"><div class="lamp"></div></div>
+  <div class="beam b2"><div class="lamp"></div></div>
+  <div class="beam"><div class="lamp"></div></div>
+  <div class="floorglow"></div>
+  <div class="floorline"></div>
+  <canvas id="ic"></canvas>
+  <div class="vignette"></div>
+
+  <div class="gantry">
+    <div class="col"><div class="bulb"></div><div class="bulb"></div></div>
+    <div class="col"><div class="bulb"></div><div class="bulb"></div></div>
+    <div class="col"><div class="bulb"></div><div class="bulb"></div></div>
+    <div class="col"><div class="bulb"></div><div class="bulb"></div></div>
+    <div class="col"><div class="bulb"></div><div class="bulb"></div></div>
+  </div>
+
+  <div class="boot" id="boot"></div>
+  <div class="tele">MVJ COLLEGE OF ENGINEERING<br>AWS CLUB · <b>SEASON 2026</b><br>BENGALURU</div>
+
+  <div class="cap1" id="cap1"><div class="no" id="capNo">01</div><h3 id="capH">THE CLOUD</h3><p id="capP"></p></div>
+  <div class="dots" id="dots"><i></i><i></i><i></i></div>
+
+  <div class="loader">
+    <div class="pct" id="pct">0%</div>
+    <div class="btns">
+      <button class="sbtn fill" id="startSound">START · SOUND ON</button>
+      <button class="sbtn" id="startSilent">CONTINUE WITHOUT SOUND</button>
+    </div>
+  </div>
+
+  <div class="msg" id="msg">LIGHTS OUT<small>AND AWAY WE GO</small></div>
+  <div class="wave"></div><div class="wave w2"></div>
+  <div class="flash"></div>
+  <div class="scan"></div>
+
+  <div class="endcard">
+    <div class="tag">STUDENTS. CLOUD. FULL THROTTLE.</div>
+    <button id="enter">ENTER THE SITE</button>
+  </div>
+
+  <div class="bar" id="bar"></div>
+  <button class="skip" id="skip">SKIP ▸</button>
+</div>
+
+<canvas id="dust"></canvas>
+<div id="spot"></div>
+<div id="sectors"><div class="sec"><i></i></div><div class="sec"><i></i></div><div class="sec"><i></i></div></div>
+
+<!-- ========================= NAV ========================= -->
+<nav>
+  <a class="logo" href="#story">AWS<span>×</span>MVJCE</a>
+  <div class="links">
+    <a href="#garage">Garage</a>
+    <a href="#cloud">Cloud</a>
+    <a href="#campus">Campus</a>
+    <a href="#join">Join</a>
+    <span class="lap"><em>LAP</em><span id="lap">0:00.000</span></span>
+    <button id="toggle">Spotlight</button>
+  </div>
+</nav>
+
+<!-- ========================= SCROLL STORY: 3D RACE CAR ========================= -->
+<section id="story">
+  <div class="pin">
+    <div class="word wl" id="wl">BORN ON</div>
+    <div class="word wr" id="wr">THE GRID</div>
+    <div class="cap capl" id="cl">MVJ COLLEGE<br>OF ENGINEERING</div>
+    <div class="cap capr" id="cr">BUILT FOR<br>SPEED &amp; CLOUD</div>
+    <canvas id="storyCv"></canvas>
+    <div class="msgbox" id="m1"><div class="small">©AWS CLUB · MVJCE</div><div class="bl">ZERO TO</div><div class="bl r">CLOUD</div></div>
+    <div class="msgbox" id="m2"><div class="small">EVERY SEMESTER, A NEW SEASON</div><div class="bl">NO BRAKES</div><div class="bl r">ON LEARNING</div></div>
+    <div class="hud l"><b id="spd">000</b><small>KM/H</small></div>
+    <div class="hud r"><b id="gear">N</b><small>GEAR</small></div>
+    <div class="leds" id="leds"></div>
+    <div class="shint" id="shint">SCROLL TO ACCELERATE</div>
+    <div class="strip"><div class="track2">
+      <span>MVJ COLLEGE OF ENGINEERING</span><span>AWS CLUB</span><span>LIGHTS OUT</span><span>CLOUD</span><span>FULL THROTTLE</span><span>BENGALURU</span>
+      <span>MVJ COLLEGE OF ENGINEERING</span><span>AWS CLUB</span><span>LIGHTS OUT</span><span>CLOUD</span><span>FULL THROTTLE</span><span>BENGALURU</span>
+    </div></div>
+  </div>
+</section>
+
+<div class="flag"></div>
+
+<!-- ========================= HERO ========================= -->
+<section id="home">
+  <div class="eyebrow reveal">AWS Club · MVJCE · Season 2026</div>
+  <h1 class="reveal" style="--d:.15s">BUILD FAST.<br><span class="r">DEPLOY</span><br>FASTER.</h1>
+  <!-- EDIT: hero paragraph -->
+  <p class="reveal" style="--d:.3s">A student team at MVJCE that learns, builds and ships on the cloud, with the focus of a pit crew. Move your mouse: the floodlight follows you.</p>
+  <div class="reveal" style="--d:.45s">
+    <a class="btn" href="#join">Join the grid</a>
+    <a class="btn ghost" href="#garage">Open the garage</a>
+  </div>
+</section>
+
+<div class="marquee">
+  <div class="track">
+    <span><i>P1</i>EC2</span><span><i>P2</i>S3</span><span><i>P3</i>LAMBDA</span><span><i>P4</i>IAM</span><span><i>P5</i>DYNAMODB</span><span><i>P6</i>CLOUDFRONT</span><span><i>P7</i>VPC</span><span><i>P8</i>RDS</span>
+    <span><i>P1</i>EC2</span><span><i>P2</i>S3</span><span><i>P3</i>LAMBDA</span><span><i>P4</i>IAM</span><span><i>P5</i>DYNAMODB</span><span><i>P6</i>CLOUDFRONT</span><span><i>P7</i>VPC</span><span><i>P8</i>RDS</span>
+  </div>
+</div>
+
+<!-- ========================= ABOUT ========================= -->
+<section id="about">
+  <div class="about-grid">
+    <div>
+      <div class="eyebrow reveal">The team</div>
+      <h2 class="reveal" style="--d:.1s">ONE TEAM.<br><em>ONE CLOUD.</em></h2>
+      <!-- EDIT: write about your club here -->
+      <p class="reveal" style="--d:.2s">We are the AWS club of MVJCE. Like a good pit crew, we turn practice into speed: cloud computing goes from theory to things you can build, deploy and show off.</p>
+      <p class="reveal" style="--d:.3s">Whether you are a rookie or already know your way around a terminal, there is a seat on the grid for you.</p>
+    </div>
+    <div class="stats">
+      <!-- EDIT: change data-count numbers to your real numbers -->
+      <div class="stat reveal"><b data-count="50">0</b><span>Drivers</span></div>
+      <div class="stat reveal" style="--d:.1s"><b data-count="10">0</b><span>Races</span></div>
+      <div class="stat reveal" style="--d:.2s"><b data-count="5">0</b><span>Podiums</span></div>
+      <div class="stat reveal" style="--d:.3s"><b data-count="3">0</b><span>Fastest laps</span></div>
+    </div>
+  </div>
+</section>
+
+<div class="flag"></div>
+
+<!-- ========================= THE GARAGE ========================= -->
+<section id="garage">
+  <div class="eyebrow reveal">The garage</div>
+  <h2 class="reveal" style="--d:.1s">EVERY AWS SERVICE<br>IS A <em>MACHINE</em></h2>
+  <p class="lead reveal" style="--d:.2s">New to the cloud? Think of it as a garage. Each service is a different vehicle built for a different job. Hover a car to rev it.</p>
+
+  <div class="garage">
+    <!-- 1. LAMBDA = the F1 car -->
+    <article class="gcar reveal">
+      <div class="gtag">AWS LAMBDA</div>
+      <h3>THE F1</h3>
+      <svg viewBox="0 0 420 160" aria-label="Formula-style race car">
+        <defs>
+          <linearGradient id="gF" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff4a58"/><stop offset="1" stop-color="#a30012"/></linearGradient>
+          <linearGradient id="bF" x1="0" x2="1"><stop offset="0" stop-color="#ffd9a0" stop-opacity=".95"/><stop offset="1" stop-color="#ffa31a" stop-opacity="0"/></linearGradient>
+        </defs>
+        <line class="road" x1="0" y1="147" x2="420" y2="147" stroke="#ff2a3c" stroke-width="2" opacity=".6"/>
+        <g class="car-body">
+          <polygon class="beamS" points="392,108 420,92 420,126" fill="url(#bF)"/>
+          <rect x="46" y="58" width="9" height="52" fill="#0b0b0b" stroke="#ff2a3c" stroke-width="1"/>
+          <rect x="36" y="56" width="52" height="6" fill="url(#gF)"/>
+          <rect x="40" y="66" width="44" height="4" fill="#0b0b0b"/>
+          <path d="M66 110 L150 100 C176 94 196 80 226 74 L256 70 L292 82 L396 106 L396 112 L66 114 Z" fill="url(#gF)" stroke="#ff7a85" stroke-width="1"/>
+          <path d="M150 100 L168 78 L206 74 L220 92 Z" fill="#8f0010"/>
+          <ellipse cx="238" cy="68" rx="15" ry="6" fill="#0b0b0b"/>
+          <path d="M224 72 C230 54 250 54 258 70" fill="none" stroke="#1d1d22" stroke-width="3.5"/>
+          <rect x="338" y="110" width="68" height="5" fill="#0b0b0b"/>
+          <rect x="400" y="100" width="5" height="18" fill="#ff2a3c"/>
+          <rect x="58" y="108" width="30" height="5" fill="#0b0b0b"/>
+          <g class="wh"><circle cx="112" cy="111" r="27" fill="#0a0a0a" stroke="#2b2b30" stroke-width="2"/><circle cx="112" cy="111" r="15" fill="#15151a" stroke="#ff2a3c" stroke-width="2"/><path d="M112 98V124M99 111H125M103 102L121 120M121 102L103 120" stroke="#ffa31a" stroke-width="1.6"/></g>
+          <g class="wh"><circle cx="330" cy="114" r="24" fill="#0a0a0a" stroke="#2b2b30" stroke-width="2"/><circle cx="330" cy="114" r="13" fill="#15151a" stroke="#ff2a3c" stroke-width="2"/><path d="M330 103V125M319 114H341M322 106L338 122M338 106L322 122" stroke="#ffa31a" stroke-width="1.6"/></g>
+        </g>
+      </svg>
+      <p>Runs your code in milliseconds, only when something happens. No server to look after. Fast off the line, gone when the race is done.</p>
+      <div class="meters">
+        <div class="meter">SPEED<div><i style="--w:96%"></i></div></div>
+        <div class="meter">SCALE<div><i style="--w:90%"></i></div></div>
+        <div class="meter">IDLE COST<div><i style="--w:4%"></i></div></div>
+      </div>
+    </article>
+
+    <!-- 2. EC2 = the coupe -->
+    <article class="gcar reveal" style="--d:.12s">
+      <div class="gtag">AMAZON EC2</div>
+      <h3>THE COUPE</h3>
+      <svg viewBox="0 0 420 160" aria-label="Sports coupe">
+        <defs>
+          <linearGradient id="gC" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff5a3a"/><stop offset="1" stop-color="#a8140a"/></linearGradient>
+          <linearGradient id="bC" x1="0" x2="1"><stop offset="0" stop-color="#fff0c8" stop-opacity=".95"/><stop offset="1" stop-color="#ffa31a" stop-opacity="0"/></linearGradient>
+        </defs>
+        <line class="road" x1="0" y1="147" x2="420" y2="147" stroke="#ff2a3c" stroke-width="2" opacity=".6"/>
+        <g class="car-body">
+          <polygon class="beamS" points="396,104 420,90 420,128" fill="url(#bC)"/>
+          <path d="M30 118 L30 100 C30 92 44 88 62 86 L118 80 C136 60 168 46 206 46 L252 48 C282 52 306 68 322 82 L366 88 C384 90 394 98 396 110 L396 118 Z" fill="url(#gC)" stroke="#ff8a6a" stroke-width="1"/>
+          <path d="M138 78 C150 62 174 54 204 54 L206 78 Z" fill="#0f0f16" stroke="#ff2a3c" stroke-width="1"/>
+          <path d="M216 54 L250 56 C270 60 288 72 300 82 L216 82 Z" fill="#0f0f16" stroke="#ff2a3c" stroke-width="1"/>
+          <rect x="22" y="88" width="46" height="5" rx="2" fill="#0b0b0b"/>
+          <rect x="36" y="92" width="5" height="10" fill="#0b0b0b"/>
+          <rect x="378" y="96" width="16" height="6" rx="3" fill="#ffe9b0"/>
+          <rect x="30" y="102" width="8" height="5" fill="#ff2a3c"/>
+          <path d="M60 110 C60 90 100 90 100 110" fill="#050505"/>
+          <path d="M250 112 C250 90 312 90 312 112" fill="#050505"/>
+          <g class="wh"><circle cx="86" cy="116" r="25" fill="#0a0a0a" stroke="#2b2b30" stroke-width="2"/><circle cx="86" cy="116" r="14" fill="#15151a" stroke="#ff2a3c" stroke-width="2"/><path d="M86 103V129M73 116H99M77 107L95 125M95 107L77 125" stroke="#ffa31a" stroke-width="1.6"/></g>
+          <g class="wh"><circle cx="304" cy="116" r="25" fill="#0a0a0a" stroke="#2b2b30" stroke-width="2"/><circle cx="304" cy="116" r="14" fill="#15151a" stroke="#ff2a3c" stroke-width="2"/><path d="M304 103V129M291 116H317M295 107L313 125M313 107L295 125" stroke="#ffa31a" stroke-width="1.6"/></g>
+        </g>
+      </svg>
+      <p>Your own virtual computer in the cloud. Pick the engine size, start it in a minute, resize it when you need more power and switch it off when you do not.</p>
+      <div class="meters">
+        <div class="meter">POWER<div><i style="--w:84%"></i></div></div>
+        <div class="meter">CONTROL<div><i style="--w:95%"></i></div></div>
+        <div class="meter">FLEXIBLE<div><i style="--w:80%"></i></div></div>
+      </div>
+    </article>
+
+    <!-- 3. S3 = the truck -->
+    <article class="gcar reveal" style="--d:.24s">
+      <div class="gtag">AMAZON S3</div>
+      <h3>THE TRUCK</h3>
+      <svg viewBox="0 0 420 160" aria-label="Pickup truck">
+        <defs>
+          <linearGradient id="gT" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffb23a"/><stop offset="1" stop-color="#b8620a"/></linearGradient>
+          <linearGradient id="bT" x1="0" x2="1"><stop offset="0" stop-color="#fff0c8" stop-opacity=".95"/><stop offset="1" stop-color="#ffa31a" stop-opacity="0"/></linearGradient>
+        </defs>
+        <line class="road" x1="0" y1="147" x2="420" y2="147" stroke="#ff2a3c" stroke-width="2" opacity=".6"/>
+        <g class="car-body">
+          <polygon class="beamS" points="398,102 420,88 420,128" fill="url(#bT)"/>
+          <rect x="24" y="78" width="140" height="40" fill="url(#gT)" stroke="#ffd08a" stroke-width="1"/>
+          <rect x="30" y="64" width="38" height="14" fill="#6b3a05"/><rect x="74" y="60" width="38" height="18" fill="#7d4608"/><rect x="118" y="66" width="38" height="12" fill="#6b3a05"/>
+          <path d="M164 118 L164 66 C164 54 172 48 184 48 L238 48 C254 48 268 60 280 76 L352 82 C370 84 380 94 380 108 L380 118 Z" fill="url(#gT)" stroke="#ffd08a" stroke-width="1"/>
+          <path d="M180 56 L232 56 C244 56 254 64 262 76 L180 76 Z" fill="#0f0f16" stroke="#ff2a3c" stroke-width="1"/>
+          <rect x="362" y="94" width="14" height="6" rx="3" fill="#ffe9b0"/>
+          <rect x="24" y="102" width="8" height="6" fill="#ff2a3c"/>
+          <path d="M66 116 C66 92 118 92 118 116" fill="#050505"/>
+          <path d="M270 116 C270 92 332 92 332 116" fill="#050505"/>
+          <g class="wh"><circle cx="92" cy="118" r="26" fill="#0a0a0a" stroke="#2b2b30" stroke-width="2"/><circle cx="92" cy="118" r="14" fill="#15151a" stroke="#ff2a3c" stroke-width="2"/><path d="M92 104V132M78 118H106M82 108L102 128M102 108L82 128" stroke="#ffa31a" stroke-width="1.6"/></g>
+          <g class="wh"><circle cx="301" cy="118" r="26" fill="#0a0a0a" stroke="#2b2b30" stroke-width="2"/><circle cx="301" cy="118" r="14" fill="#15151a" stroke="#ff2a3c" stroke-width="2"/><path d="M301 104V132M287 118H315M291 108L311 128M311 108L291 128" stroke="#ffa31a" stroke-width="1.6"/></g>
+        </g>
+      </svg>
+      <p>Storage that carries anything: photos, videos, backups, a whole website. Load as much as you like, fetch it any time. Hundreds of club posters? Easy.</p>
+      <div class="meters">
+        <div class="meter">CAPACITY<div><i style="--w:99%"></i></div></div>
+        <div class="meter">DURABLE<div><i style="--w:97%"></i></div></div>
+        <div class="meter">SPEED<div><i style="--w:62%"></i></div></div>
+      </div>
+    </article>
+  </div>
+</section>
+
+<!-- ========================= THE CLOUD: architecture + terminal ========================= -->
+<section id="cloud">
+  <div class="eyebrow reveal">Under the bonnet</div>
+  <h2 class="reveal" style="--d:.1s">HOW A WEBSITE<br>LIVES ON <em>AWS</em></h2>
+  <p class="lead reveal" style="--d:.2s">This is how a real student website runs in the cloud. Click or hover any box to see what it does. The glowing dots are requests travelling through the system.</p>
+
+  <div class="cloud-grid">
+    <div class="diagram reveal">
+      <svg viewBox="0 0 1000 440" id="arch" role="img" aria-label="Architecture diagram: users, CloudFront, S3, Lambda, DynamoDB">
+        <defs><radialGradient id="pk"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#ffa31a"/></radialGradient></defs>
+        <path class="edge" id="e1" d="M200 230 L300 230"/>
+        <path class="edge" id="e2" d="M470 230 C535 230 520 100 590 100"/>
+        <path class="edge" id="e3" d="M470 230 C535 230 520 360 590 360"/>
+        <path class="edge" id="e4" d="M760 360 L810 360"/>
+        <g fill="url(#pk)">
+          <circle r="5"><animateMotion dur="1.6s" repeatCount="indefinite" begin="0s"><mpath href="#e1"/></animateMotion></circle>
+          <circle r="5"><animateMotion dur="1.6s" repeatCount="indefinite" begin=".8s"><mpath href="#e1"/></animateMotion></circle>
+          <circle r="5"><animateMotion dur="2.2s" repeatCount="indefinite" begin=".4s"><mpath href="#e2"/></animateMotion></circle>
+          <circle r="5"><animateMotion dur="2.2s" repeatCount="indefinite" begin="1.2s"><mpath href="#e3"/></animateMotion></circle>
+          <circle r="5"><animateMotion dur="1.2s" repeatCount="indefinite" begin=".2s"><mpath href="#e4"/></animateMotion></circle>
+          <circle r="5"><animateMotion dur="1.2s" repeatCount="indefinite" begin=".8s"><mpath href="#e4"/></animateMotion></circle>
+        </g>
+        <g class="node" data-k="you"><rect x="30" y="190" width="170" height="80" rx="12"/><text x="115" y="226" text-anchor="middle">YOU</text><text class="s" x="115" y="252" text-anchor="middle">BROWSER · PHONE</text></g>
+        <g class="node" data-k="cf"><rect x="300" y="190" width="170" height="80" rx="12"/><text x="385" y="226" text-anchor="middle">CLOUDFRONT</text><text class="s" x="385" y="252" text-anchor="middle">FAST DELIVERY</text></g>
+        <g class="node" data-k="s3"><rect x="590" y="60" width="170" height="80" rx="12"/><text x="675" y="96" text-anchor="middle">S3</text><text class="s" x="675" y="122" text-anchor="middle">SITE FILES</text></g>
+        <g class="node" data-k="fn"><rect x="590" y="320" width="170" height="80" rx="12"/><text x="675" y="356" text-anchor="middle">LAMBDA</text><text class="s" x="675" y="382" text-anchor="middle">YOUR CODE</text></g>
+        <g class="node" data-k="db"><rect x="810" y="320" width="170" height="80" rx="12"/><text x="895" y="356" text-anchor="middle">DYNAMODB</text><text class="s" x="895" y="382" text-anchor="middle">DATABASE</text></g>
+      </svg>
+      <div class="info" id="info"><b>TAP A BOX</b>See what each part does, in plain words.</div>
+    </div>
+
+    <div class="term reveal" style="--d:.15s" id="termbox">
+      <div class="bar2"><i></i><i></i><i></i><span style="margin-left:8px">DEPLOY · TERMINAL</span></div>
+      <pre id="term"></pre>
+      <div class="note">Demo commands. A real bucket name must be unique across all of AWS, and public access must be turned on before a site goes live.</div>
+    </div>
+  </div>
+</section>
+
+<div class="flag"></div>
+
+<!-- ========================= CAMPUS + CLUBS ========================= -->
+<section id="campus">
+  <div class="campus-top">
+    <div>
+      <div class="eyebrow reveal">Our campus</div>
+      <h2 class="reveal" style="--d:.1s">MVJ COLLEGE<br>OF <em>ENGINEERING</em></h2>
+      <!-- EDIT: write a line or two about your college -->
+      <p class="lead reveal" style="--d:.2s">Bengaluru, classes, labs, fests and a lot of late-night code. This is where the grid starts. Meet the clubs, find your crowd and build something with them.</p>
+    </div>
+    <div class="building reveal" style="--d:.2s">
+      <svg viewBox="0 0 400 270" aria-label="Line drawing of a college building">
+        <defs><linearGradient id="bgrad" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="400" y2="0"><stop offset="0" stop-color="#ff2a3c"/><stop offset="1" stop-color="#ffa31a"/></linearGradient></defs>
+        <line pathLength="1" x1="200" y1="14" x2="200" y2="48"/>
+        <polygon class="flagc" points="200,14 232,22 200,31"/>
+        <polygon pathLength="1" points="40,104 200,46 360,104"/>
+        <rect pathLength="1" x="52" y="104" width="296" height="14"/>
+        <path pathLength="1" d="M64 118 V218"/><path pathLength="1" d="M92 118 V218"/>
+        <path pathLength="1" d="M128 118 V218"/><path pathLength="1" d="M156 118 V218"/>
+        <path pathLength="1" d="M244 118 V218"/><path pathLength="1" d="M272 118 V218"/>
+        <path pathLength="1" d="M308 118 V218"/><path pathLength="1" d="M336 118 V218"/>
+        <path pathLength="1" d="M178 218 V150 C178 136 222 136 222 150 V218"/>
+        <rect pathLength="1" x="52" y="218" width="296" height="10"/>
+        <rect pathLength="1" x="40" y="228" width="320" height="10"/>
+        <rect pathLength="1" x="28" y="238" width="344" height="10"/>
+        <path pathLength="1" d="M178 82 H222"/>
+      </svg>
+    </div>
+  </div>
+
+  <div class="eyebrow reveal" style="margin-top:80px">Clubs at MVJCE</div>
+  <div class="clubs">
+    <!-- EDIT: change the one-line descriptions to match each club -->
+    <div class="club reveal"><div class="no">CLUB 01</div><h4>AAKRITI</h4><p>A student club on campus.</p></div>
+    <div class="club reveal" style="--d:.08s"><div class="no">CLUB 02</div><h4>TEDx</h4><p>Ideas worth spreading, from students.</p></div>
+    <div class="club me reveal" style="--d:.16s"><div class="no">CLUB 03</div><h4>AWS CLUB</h4><p>Cloud, code and a lot of speed. That is us.</p></div>
+    <div class="club reveal" style="--d:.24s"><div class="no">CLUB 04</div><h4>CULTURAL</h4><p>Dance, music, drama and fest nights.</p></div>
+    <div class="club reveal" style="--d:.32s"><div class="no">CLUB 05</div><h4>SPORTS</h4><p>Teams, tournaments and fitness.</p></div>
+  </div>
+
+  <!-- EDIT: photos go in an "images" folder as campus1.jpg ... campus5.jpg -->
+  <div class="gallery">
+    <figure class="tile big reveal"><div class="ph" data-name="images/campus1.jpg"><img src="images/campus1.jpg" alt="MVJCE campus" onerror="this.remove()"></div><figcaption>CAMPUS</figcaption></figure>
+    <figure class="tile reveal" style="--d:.1s"><div class="ph" data-name="images/campus2.jpg"><img src="images/campus2.jpg" alt="" onerror="this.remove()"></div><figcaption>LABS</figcaption></figure>
+    <figure class="tile reveal" style="--d:.2s"><div class="ph" data-name="images/campus3.jpg"><img src="images/campus3.jpg" alt="" onerror="this.remove()"></div><figcaption>EVENTS</figcaption></figure>
+    <figure class="tile reveal" style="--d:.3s"><div class="ph" data-name="images/campus4.jpg"><img src="images/campus4.jpg" alt="" onerror="this.remove()"></div><figcaption>CLUBS</figcaption></figure>
+    <figure class="tile reveal" style="--d:.4s"><div class="ph" data-name="images/campus5.jpg"><img src="images/campus5.jpg" alt="" onerror="this.remove()"></div><figcaption>STUDENTS</figcaption></figure>
+  </div>
+</section>
+
+<!-- ========================= RACE WEEKEND ========================= -->
+<section id="orbit">
+  <div class="eyebrow reveal">What we do</div>
+  <h2 class="reveal" style="--d:.1s">RACE <em>WEEKEND</em></h2>
+  <div class="hint">DRAG TO ROTATE</div>
+  <div class="stage" id="stage">
+    <div id="ring">
+      <div class="card"><div class="n">FP1<small>SESSION 01</small></div><div><h3>PRACTICE</h3><p>Hands-on cloud workshops on EC2, S3, Lambda and more. Learn by doing.</p></div></div>
+      <div class="card"><div class="n">Q3<small>SESSION 02</small></div><div><h3>QUALIFYING</h3><p>Hackathons: build something real against the clock, in a team.</p></div></div>
+      <div class="card"><div class="n">SPR<small>SESSION 03</small></div><div><h3>SPRINT</h3><p>Certification sprints and study groups for AWS exams.</p></div></div>
+      <div class="card"><div class="n">PIT<small>SESSION 04</small></div><div><h3>PIT STOP</h3><p>Quick doubt-clearing sessions. Stuck? Get back on track fast.</p></div></div>
+      <div class="card"><div class="n">RACE<small>SESSION 05</small></div><div><h3>GRAND PRIX</h3><p>Deploy websites, apps and APIs that live on the cloud.</p></div></div>
+      <div class="card"><div class="n">P1<small>SESSION 06</small></div><div><h3>PODIUM</h3><p>Talks with seniors and alumni, plus a community that celebrates wins.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<div class="flag"></div>
+
+<!-- ========================= JOIN ========================= -->
+<section id="join">
+  <div class="eyebrow reveal">Grid slot open</div>
+  <div class="lights5 reveal"><i></i><i></i><i></i><i></i><i></i></div>
+  <h2 class="reveal" style="--d:.1s">JOIN THE <em>GRID</em></h2>
+  <p class="reveal" style="--d:.2s">Ready to race with us? Take your seat in AWS × MVJCE.</p>
+  <!-- EDIT: put your real Google Form / Instagram / email link in href -->
+  <a class="btn reveal" style="--d:.3s" href="#" target="_blank">Apply now</a>
+</section>
+
+<footer>
+  <span>AWS × MVJCE · MVJ COLLEGE OF ENGINEERING</span>
+  <span>STUDENTS. CLOUD. FULL THROTTLE.</span>
+</footer>
+
+<script>
+/* =========================================================
+   JAVASCRIPT : this makes everything move
+   ========================================================= */
+const $ = id => document.getElementById(id);
+const clamp = (v,a=0,b=1)=>Math.min(b,Math.max(a,v));
+const ease  = t=>t*t*(3-2*t);
+const easeIO = t=>t<.5 ? 4*t*t*t : 1-Math.pow(-2*t+2,3)/2;
+let mx = innerWidth/2, my = innerHeight/2;
+addEventListener('pointermove', e=>{ mx = e.clientX; my = e.clientY; });
+
+/* ---------------------------------------------------------
+   1. SOUND  (made in code, no audio files; only if you pick it)
+   --------------------------------------------------------- */
+let AC = null, droneNodes = null;
+function initAudio(){ try{ AC = new (window.AudioContext||window.webkitAudioContext)(); AC.resume(); }catch(e){ AC = null; } }
+function beep(freq, dur, vol){
+  if(!AC) return;
+  try{ const o = AC.createOscillator(), g = AC.createGain(); o.type = 'square'; o.frequency.value = freq;
+    g.gain.setValueAtTime(vol, AC.currentTime); g.gain.exponentialRampToValueAtTime(.0001, AC.currentTime + dur);
+    o.connect(g).connect(AC.destination); o.start(); o.stop(AC.currentTime + dur); }catch(e){}
+}
+function whoosh(dur=1.1, vol=.13){
+  if(!AC) return;
+  try{ const len = Math.floor(AC.sampleRate*dur), buf = AC.createBuffer(1,len,AC.sampleRate), d = buf.getChannelData(0);
+    for(let i=0;i<len;i++) d[i] = Math.random()*2-1;
+    const s = AC.createBufferSource(); s.buffer = buf;
+    const f = AC.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 1.2;
+    const t = AC.currentTime; f.frequency.setValueAtTime(250,t); f.frequency.exponentialRampToValueAtTime(3200,t+dur*.8);
+    const g = AC.createGain(); g.gain.setValueAtTime(.0001,t); g.gain.exponentialRampToValueAtTime(vol,t+dur*.4); g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+    s.connect(f).connect(g).connect(AC.destination); s.start(); }catch(e){}
+}
+function boom(){
+  if(!AC) return;
+  try{ const t = AC.currentTime, o = AC.createOscillator(), g = AC.createGain(); o.type = 'sine';
+    o.frequency.setValueAtTime(150,t); o.frequency.exponentialRampToValueAtTime(36,t+.8);
+    g.gain.setValueAtTime(.45,t); g.gain.exponentialRampToValueAtTime(.0001,t+.9);
+    o.connect(g).connect(AC.destination); o.start(); o.stop(t+1); }catch(e){}
+}
+function engine(){
+  if(!AC) return;
+  try{ const t0 = AC.currentTime, o = AC.createOscillator(), o2 = AC.createOscillator(), f = AC.createBiquadFilter(), g = AC.createGain();
+    o.type = 'sawtooth'; o2.type = 'square';
+    o.frequency.setValueAtTime(70,t0); o.frequency.exponentialRampToValueAtTime(520,t0+2.4);
+    o2.frequency.setValueAtTime(35,t0); o2.frequency.exponentialRampToValueAtTime(260,t0+2.4);
+    f.type = 'lowpass'; f.frequency.setValueAtTime(400,t0); f.frequency.exponentialRampToValueAtTime(3200,t0+2.4);
+    g.gain.setValueAtTime(.0001,t0); g.gain.exponentialRampToValueAtTime(.15,t0+.25); g.gain.exponentialRampToValueAtTime(.0001,t0+3.2);
+    o.connect(f); o2.connect(f); f.connect(g).connect(AC.destination); o.start(); o2.start(); o.stop(t0+3.3); o2.stop(t0+3.3); }catch(e){}
+}
+function drone(on){
+  if(!AC) return;
+  try{
+    if(on && !droneNodes){
+      const o = AC.createOscillator(), o2 = AC.createOscillator(), f = AC.createBiquadFilter(), g = AC.createGain();
+      o.type = 'sawtooth'; o.frequency.value = 55; o2.type = 'sawtooth'; o2.frequency.value = 82.5;
+      f.type = 'lowpass'; f.frequency.value = 220; g.gain.value = .0001; g.gain.exponentialRampToValueAtTime(.05, AC.currentTime+2);
+      o.connect(f); o2.connect(f); f.connect(g).connect(AC.destination); o.start(); o2.start();
+      droneNodes = {o,o2,g};
+    } else if(!on && droneNodes){
+      const t = AC.currentTime; droneNodes.g.gain.cancelScheduledValues(t); droneNodes.g.gain.setValueAtTime(droneNodes.g.gain.value||.05,t);
+      droneNodes.g.gain.exponentialRampToValueAtTime(.0001,t+1);
+      droneNodes.o.stop(t+1.1); droneNodes.o2.stop(t+1.1); droneNodes = null;
+    }
+  }catch(e){}
+}
+
+/* ---------------------------------------------------------
+   2. INTRO ENGINE : thousands of particles that morph shapes
+   --------------------------------------------------------- */
+const intro = $('intro'), ic = $('ic'), ix = ic.getContext('2d');
+let running = true, started = false, entered = false, timers = [];
+const later = (fn, ms)=>timers.push(setTimeout(fn, ms));
+
+const NP = innerWidth < 800 ? 4200 : 8500;       // number of particles
+let NA = NP;                                      // particles actually drawn (drops on slow devices)
+let fpsN = 0, fpsSum = 0;
+const FOC = 700, FLOOR = 150;                    // camera focal length, y of the showroom floor
+let IW = 0, IH = 0, BASE = 1, CX = 0, CY = 0, DPR = 1;
+function isize(){
+  DPR = Math.min(devicePixelRatio || 1, 2); IW = innerWidth; IH = innerHeight;
+  ic.width = IW*DPR; ic.height = IH*DPR; ic.style.width = IW+'px'; ic.style.height = IH+'px';
+  BASE = Math.min(IW*.92/800, IH*.55/400); CX = IW/2; CY = IH*.41;
+  intro.style.setProperty('--floor', (CY + FLOOR*BASE) + 'px');
+}
+isize(); addEventListener('resize', isize);
+
+/* particle data */
+const cur = new Float32Array(NP*3), src = new Float32Array(NP*3), dst = new Float32Array(NP*3);
+const dly = new Float32Array(NP), sd1 = new Float32Array(NP), sd2 = new Float32Array(NP), rv = new Float32Array(NP*3);
+const gR = new Float32Array(NP), gA = new Float32Array(NP), gY = new Float32Array(NP);
+const px = new Float32Array(NP), py = new Float32Array(NP), pm = new Float32Array(NP), ps = new Float32Array(NP);
+const ppx = new Float32Array(NP), ppy = new Float32Array(NP), cls = new Uint8Array(NP);
+for(let i=0;i<NP;i++){
+  sd1[i] = Math.random(); sd2[i] = Math.random();
+  const a = Math.random()*6.2832, b = Math.acos(2*Math.random()-1);
+  rv[i*3] = Math.sin(b)*Math.cos(a); rv[i*3+1] = Math.sin(b)*Math.sin(a); rv[i*3+2] = Math.cos(b);
+  // galaxy: 3 spiral arms in a flat disc
+  const arm = i % 3, r = Math.pow(Math.random(), .65)*360;
+  gR[i] = r; gA[i] = r*.017 + arm*2.0944 + (Math.random()-.5)*.55; gY[i] = (Math.random()-.5)*(30 + 60*Math.exp(-r/60));
+}
+function galaxyPos(T){
+  for(let i=0;i<NA;i++){
+    const r = gR[i], a = gA[i] + T*(.9 - r/520);
+    cur[i*3] = Math.cos(a)*r; cur[i*3+1] = gY[i]; cur[i*3+2] = Math.sin(a)*r;
+  }
+}
+
+/* ----- shapes: drawn on a hidden canvas, then sampled into particle targets ----- */
+const SHAPES = {};
+const FONT = "'Bebas Neue','Oswald',Impact,'Arial Narrow',sans-serif";
+function scan(draw){
+  const c = document.createElement('canvas'); c.width = 800; c.height = 400;
+  const g = c.getContext('2d'); g.fillStyle = '#fff'; g.strokeStyle = '#fff'; g.lineJoin = 'round'; g.lineCap = 'round';
+  draw(g); return g.getImageData(0,0,800,400).data;
+}
+function sample(data, thick, o={}){
+  const r = o.edge || 0, inner = o.inner != null ? o.inner : 1, pts = [];
+  const A = (x,y)=> (x<0||y<0||x>=800||y>=400) ? 0 : data[(y*800+x)*4+3];
+  for(let y=0;y<400;y+=2) for(let x=0;x<800;x+=2){
+    if(data[(y*800+x)*4+3] <= 128) continue;
+    const green = data[(y*800+x)*4+1] > 200 && data[(y*800+x)*4] < 100;        // solid parts (like the arrow)
+    let edge = true;
+    if(r && !green) edge = A(x-r,y) <= 128 || A(x+r,y) <= 128 || A(x,y-r) <= 128 || A(x,y+r) <= 128 || A(x-r,y-r) <= 128 || A(x+r,y+r) <= 128 || A(x+r,y-r) <= 128 || A(x-r,y+r) <= 128;
+    if(green || edge || Math.random() < inner){ pts.push(x,y); if(edge && !green && r) pts.push(x,y); }
+  }
+  const m = pts.length/2, out = new Float32Array(NP*3);
+  for(let i=0;i<NP;i++){
+    const j = (Math.random()*m|0)*2;
+    out[i*3]   = pts[j]   - 400 + (Math.random()-.5)*2.2;
+    out[i*3+1] = pts[j+1] - 200 + (Math.random()-.5)*2.2;
+    out[i*3+2] = (Math.random()-.5)*thick;
+  }
+  return out;
+}
+function drawCloud(g){
+  g.fillStyle = '#ff0000';
+  [[250,226,70],[345,160,94],[462,182,80],[552,230,62],[188,262,42],[612,262,40]].forEach(([x,y,r])=>{ g.beginPath(); g.arc(x,y,r,0,6.2832); g.fill(); });
+  g.beginPath(); g.roundRect ? g.roundRect(168,232,476,74,37) : g.rect(168,232,476,74); g.fill();
+  g.fillStyle = '#00ff00';                                   // solid "upload" arrow inside the cloud
+  g.beginPath(); g.moveTo(400,176); g.lineTo(450,232); g.lineTo(420,232); g.lineTo(420,292); g.lineTo(380,292); g.lineTo(380,232); g.lineTo(350,232); g.closePath(); g.fill();
+}
+function drawCampus(g){
+  g.beginPath(); g.moveTo(400,24); g.lineTo(400,70); g.lineWidth = 6; g.stroke();
+  g.beginPath(); g.moveTo(400,24); g.lineTo(446,36); g.lineTo(400,50); g.fill();
+  g.beginPath(); g.moveTo(130,170); g.lineTo(400,70); g.lineTo(670,170); g.closePath(); g.fill();
+  g.globalCompositeOperation = 'destination-out';
+  g.beginPath(); g.moveTo(205,160); g.lineTo(400,92); g.lineTo(595,160); g.closePath(); g.fill();
+  g.globalCompositeOperation = 'source-over';
+  g.fillRect(140,172,520,18);
+  for(let i=0;i<6;i++){ const cx = 400 + (i-2.5)*84; g.fillRect(cx-13,190,26,120); g.fillRect(cx-19,186,38,8); g.fillRect(cx-19,306,38,8); }
+  g.fillRect(150,314,500,14); g.fillRect(132,328,536,14); g.fillRect(114,342,572,14);
+}
+function drawCar(g){
+  g.beginPath();
+  g.moveTo(96,296); g.lineTo(96,254); g.bezierCurveTo(96,238,122,230,160,226);
+  g.lineTo(262,210); g.bezierCurveTo(296,184,346,166,410,164); g.lineTo(486,168);
+  g.bezierCurveTo(530,174,566,202,596,214); g.lineTo(690,230);
+  g.bezierCurveTo(716,238,730,258,730,278); g.lineTo(730,296); g.closePath(); g.fill();
+  g.fillRect(104,222,92,12); g.fillRect(128,230,10,22); g.fillRect(166,230,10,22);       // spoiler
+  g.globalCompositeOperation = 'destination-out';
+  g.beginPath(); g.moveTo(290,208); g.bezierCurveTo(314,196,352,184,398,182); g.lineTo(442,184); g.lineTo(442,208); g.closePath(); g.fill();
+  g.beginPath(); g.moveTo(456,184); g.lineTo(498,186); g.bezierCurveTo(528,192,552,200,568,210); g.lineTo(456,208); g.closePath(); g.fill();
+  g.beginPath(); g.arc(214,296,60,0,6.2832); g.fill(); g.beginPath(); g.arc(612,296,60,0,6.2832); g.fill();
+  g.beginPath(); g.moveTo(690,246); g.lineTo(726,252); g.lineTo(726,262); g.lineTo(690,258); g.closePath(); g.fill();
+  g.globalCompositeOperation = 'source-over';
+  [[214,296],[612,296]].forEach(([x,y])=>{
+    g.lineWidth = 10; g.beginPath(); g.arc(x,y,48,0,6.2832); g.stroke();
+    g.lineWidth = 4; g.beginPath(); g.arc(x,y,28,0,6.2832); g.stroke();
+    for(let k=0;k<5;k++){ const a = k*1.2566; g.beginPath(); g.moveTo(x,y); g.lineTo(x+Math.cos(a)*28,y+Math.sin(a)*28); g.stroke(); }
+    g.beginPath(); g.arc(x,y,9,0,6.2832); g.fill();
+  });
+  g.lineWidth = 4; g.beginPath(); g.moveTo(40,336); g.lineTo(760,336); g.stroke();
+}
+function drawTitle(g){
+  g.textAlign = 'center'; g.textBaseline = 'alphabetic';
+  g.lineWidth = 9; g.font = `400 250px ${FONT}`; g.fillText('AWS', 400, 245); g.strokeText('AWS', 400, 245);
+  g.lineWidth = 5; g.font = `400 112px ${FONT}`; g.fillText('× MVJCE', 400, 370); g.strokeText('× MVJCE', 400, 370);
+}
+function buildShapes(){
+  SHAPES.cloud  = sample(scan(drawCloud), 70, {edge:7, inner:.07});
+  SHAPES.campus = sample(scan(drawCampus), 46, {edge:5, inner:.5});
+  SHAPES.car    = sample(scan(drawCar), 60, {edge:5, inner:.36});
+  SHAPES.title  = sample(scan(drawTitle), 26);
+  SHAPES.blast  = new Float32Array(NP*3);
+  for(let i=0;i<NP;i++){ const R = 420 + Math.random()*900; for(let k=0;k<3;k++) SHAPES.blast[i*3+k] = rv[i*3+k]*R; }
+}
+
+/* ----- morphing ----- */
+let mt = 99, mdur = 1.4, morphing = false, swirl = 150, warp = false, idle = 1;
+let tAmber = .18, tWhite = .1, amberF = .18, whiteF = .1;
+let tRx = .95, rx = .95, ry = 0, ryT = 0;
+function morph(target, dur, o={}){
+  src.set(cur); dst.set(target);
+  mdur = dur; mt = 0; morphing = true; swirl = o.swirl != null ? o.swirl : 150;
+  const sweep = o.sweep != null ? o.sweep : .55;
+  for(let i=0;i<NP;i++) dly[i] = clamp((dst[i*3]+400)/800)*sweep + Math.random()*.25;
+  if(o.amber != null) tAmber = o.amber;
+  if(o.white != null) tWhite = o.white;
+  if(o.rx != null) tRx = o.rx;
+}
+const COLS = ['rgba(255,42,60,.9)','rgba(255,170,30,.9)','rgba(255,244,236,.95)'];
+let lastT = 0, T = 0, phaseShape = false, shake = 0;
+function step(ts){
+  if(!running) return;
+  const t = ts/1000, rawDt = t - lastT, dt = Math.min(rawDt, .2) || .016; lastT = t; T += dt;
+  // slow device? use fewer particles so the show stays smooth
+  if(rawDt > 0 && rawDt < 1){ fpsSum += rawDt; fpsN++; if(fpsN >= 40){ if(fpsSum/fpsN > .034 && NA > 2200) NA = Math.max(2200, Math.floor(NA*.6)); fpsN = 0; fpsSum = 0; } }
+  amberF += (tAmber-amberF)*.04; whiteF += (tWhite-whiteF)*.04; rx += (tRx-rx)*.04;
+
+  // update positions
+  if(!morphing && !phaseShape){ galaxyPos(T); }
+  else if(morphing){
+    mt += dt;
+    let finished = true;
+    for(let i=0;i<NA;i++){
+      const u = (mt - dly[i])/mdur;
+      const k = i*3;
+      if(u <= 0){ cur[k] = src[k]; cur[k+1] = src[k+1]; cur[k+2] = src[k+2]; finished = false; continue; }
+      if(u >= 1){ cur[k] = dst[k]; cur[k+1] = dst[k+1]; cur[k+2] = dst[k+2]; continue; }
+      finished = false;
+      const e = easeIO(u), s = Math.sin(e*3.14159)*swirl;
+      cur[k]   = src[k]   + (dst[k]  -src[k])  *e + rv[k]  *s;
+      cur[k+1] = src[k+1] + (dst[k+1]-src[k+1])*e + rv[k+1]*s;
+      cur[k+2] = src[k+2] + (dst[k+2]-src[k+2])*e + rv[k+2]*s;
+    }
+    if(finished){ morphing = false; phaseShape = true; }
+  } else {
+    // settled on a shape: tiny floating motion (stronger when the "engine" idles)
+    for(let i=0;i<NA;i++){
+      const k = i*3, w = T*1.6 + sd1[i]*40;
+      cur[k]   = dst[k]   + Math.sin(w)*idle*.9;
+      cur[k+1] = dst[k+1] + Math.cos(w*1.2)*idle*.9;
+      cur[k+2] = dst[k+2] + Math.sin(w*.7)*idle*2.2;
+    }
+  }
+
+  // camera
+  ryT = (mx/IW - .5)*.7 + Math.sin(T*.5)*.18 + (phaseShape || morphing ? 0 : T*.0);
+  ry += (ryT - ry)*.05;
+  const cyy = Math.cos(ry), syy = Math.sin(ry), cxx = Math.cos(rx), sxx = Math.sin(rx);
+  const rxm = rx + (my/IH - .5)*.12, cxm = Math.cos(rxm), sxm = Math.sin(rxm);
+  const showMirror = intro.classList.contains('shapes');
+  for(let i=0;i<NA;i++){
+    const k = i*3, x = cur[k], y = cur[k+1], z = cur[k+2];
+    const x1 = x*cyy + z*syy, z1 = -x*syy + z*cyy;
+    const y1 = y*cxm - z1*sxm, z2 = y*sxm + z1*cxm;
+    const s = FOC/Math.max(80, FOC+z2);
+    ppx[i] = px[i]; ppy[i] = py[i];
+    px[i] = CX + x1*BASE*s; py[i] = CY + y1*BASE*s; ps[i] = s;
+    if(showMirror){
+      const ym = 2*FLOOR - y;
+      const y2 = ym*cxm - z1*sxm, z3 = ym*sxm + z1*cxm;
+      pm[i] = CY + y2*BASE*(FOC/Math.max(80,FOC+z3));
+    }
+    const q = sd2[i];
+    cls[i] = q < amberF ? 1 : (q > 1-whiteF ? 2 : 0);
+  }
+
+  // draw
+  const dens = Math.min(1.7, Math.sqrt(NP/NA));
+  ix.setTransform(DPR,0,0,DPR,0,0);
+  ix.clearRect(0,0,IW,IH);
+  ix.globalCompositeOperation = 'lighter';
+  if(warp){
+    ix.lineWidth = 1.3;
+    for(let c=0;c<3;c++){
+      ix.strokeStyle = COLS[c]; ix.beginPath();
+      for(let i=0;i<NA;i++){ if(cls[i]!==c) continue; ix.moveTo(ppx[i],ppy[i]); ix.lineTo(px[i],py[i]); }
+      ix.stroke();
+    }
+  } else {
+    for(let c=0;c<3;c++){
+      ix.fillStyle = COLS[c];
+      for(let i=0;i<NA;i++){
+        if(cls[i]!==c) continue;
+        const sz = (1.1 + sd1[i]*1.7)*ps[i]*dens;
+        ix.fillRect(px[i]-sz/2, py[i]-sz/2, sz, sz);
+      }
+    }
+    if(showMirror){
+      ix.globalAlpha = .17;
+      for(let c=0;c<3;c++){
+        ix.fillStyle = COLS[c];
+        for(let i=0;i<NA;i++){
+          if(cls[i]!==c) continue;
+          const sz = (1.1 + sd1[i]*1.7)*ps[i]*dens;
+          ix.fillRect(px[i]-sz/2, pm[i]-sz/2, sz, sz);
+        }
+      }
+      ix.globalAlpha = 1;
+    }
+  }
+  ix.globalCompositeOperation = 'source-over';
+  requestAnimationFrame(step);
+}
+
+/* ----- floodlight beams that sweep, then lock onto the subject ----- */
+const beams = [...document.querySelectorAll('.beam')];
+const cfg = [{base:-28,amp:30,spd:.7,ph:0,lock:-18},{base:0,amp:36,spd:.5,ph:2,lock:0},{base:28,amp:30,spd:.9,ph:4,lock:18}];
+let lit = false, kb = 0, tb = 0;
+(function beamLoop(){
+  if(!running) return;
+  tb += .016; kb += ((lit?1:0) - kb)*.035;
+  beams.forEach((b,i)=>{ const c = cfg[i]; b.style.transform = `rotate(${(c.base + Math.sin(tb*c.spd+c.ph)*c.amp)*(1-kb) + c.lock*kb}deg)`; b.style.opacity = .3 + .5*kb; });
+  requestAnimationFrame(beamLoop);
+})();
+
+/* ----- loader ----- */
+const bootEl = $('boot'), pct = $('pct'), bar = $('bar');
+const bootLines = [[3,'> pit wall link ........ OK'],[24,'> mounting particles ... OK'],[45,'> loading AWS cloud .... OK'],[66,'> loading MVJCE campus . OK'],[86,'> warming the engine ... OK'],[98,'> ready to race']];
+let bootI = 0;
+function bootLog(p){ while(bootI < bootLines.length && p >= bootLines[bootI][0]){ const d = document.createElement('div'); d.textContent = bootLines[bootI][1]; bootEl.appendChild(d); bootI++; } }
+let shapesReady = false;
+(function prepare(){
+  const go = ()=>{ buildShapes(); shapesReady = true; };
+  let done = false; const once = ()=>{ if(!done){ done = true; go(); } };
+  try{ if(document.fonts && document.fonts.load){ Promise.race([document.fonts.load(`250px "Bebas Neue"`), new Promise(r=>setTimeout(r,1800))]).then(once, once); } else once(); }catch(e){ once(); }
+  setTimeout(once, 2200);
+})();
+galaxyPos(0);
+requestAnimationFrame(step);
+let n = 0;
+(function count(){
+  n += Math.random()*2.4 + .5;
+  if(n >= 100){
+    if(!shapesReady){ setTimeout(count, 80); return; }
+    n = 100; pct.textContent = '100%'; bar.style.width = '100%'; bootLog(100);
+    setTimeout(()=>intro.classList.add('loaded'), 300);
+    return;
+  }
+  bootLog(n); pct.textContent = Math.floor(n) + '%'; bar.style.width = n + '%';
+  setTimeout(count, 40);
+})();
+
+/* ----- captions ----- */
+const cap1 = $('cap1'), dots = [...$('dots').children];
+function caption(i, no, h, p){
+  $('capNo').textContent = no; $('capH').textContent = h; $('capP').textContent = p;
+  cap1.classList.remove('swap'); void cap1.offsetWidth; cap1.classList.add('show','swap');
+  $('dots').classList.add('show'); dots.forEach((d,k)=>d.classList.toggle('on', k<=i));
+}
+
+/* ----- the show ----- */
+const cols = [...document.querySelectorAll('.col')];
+function startShow(withSound){
+  if(started || !intro.classList.contains('loaded')) return;
+  started = true;
+  if(withSound){ initAudio(); drone(true); }
+  intro.classList.add('started');
+  let t = 250;
+  const at = (ms, fn)=>{ later(fn, ms); };
+
+  // 01 THE CLOUD
+  at(t, ()=>{ intro.classList.add('shapes'); morph(SHAPES.cloud, 1.5, {amber:.72, white:.1, rx:.04}); caption(0,'01 / 03','THE CLOUD','Built on AWS. Learned by students.'); whoosh(); });
+  t += 3000;
+  // 02 THE CAMPUS
+  at(t, ()=>{ morph(SHAPES.campus, 1.5, {amber:.1, white:.42}); caption(1,'02 / 03','THE CAMPUS','MVJ College of Engineering, Bengaluru.'); whoosh(); });
+  t += 3000;
+  // 03 FULL THROTTLE
+  at(t, ()=>{ morph(SHAPES.car, 1.5, {amber:.06, white:.16}); caption(2,'03 / 03','FULL THROTTLE','From zero to deployed.'); whoosh(); });
+  t += 2700;
+  // start lights over the car
+  at(t, ()=>{ intro.classList.add('lights'); idle = 2.4; });
+  for(let i=0;i<5;i++) at(t + 350 + i*560, ()=>{ cols[i].classList.add('on'); beep(480, .2, .09); idle = 2.4 + i*.9; });
+  t += 350 + 5*560 + 700 + Math.random()*800;
+  // LIGHTS OUT
+  at(t, ()=>{
+    cols.forEach(c=>c.classList.remove('on'));
+    intro.classList.add('out','go'); warp = true; lit = true; idle = 1;
+    morph(SHAPES.blast, .9, {swirl:0, sweep:.08, amber:.3, white:.4, rx:0});
+    engine(); boom();
+  });
+  // the title forms out of the blast
+  at(t + 650, ()=>{ morph(SHAPES.title, 1.7, {swirl:260, sweep:.35, amber:.22, white:.5}); whoosh(1.4,.16); });
+  at(t + 1500, ()=>{ warp = false; });
+  at(t + 2400, ()=>{ intro.classList.add('lit'); boom(); });
+  at(t + 3200, ()=>intro.classList.add('ready'));
+  at(t + 9500, enterSite);                                      // goes in by itself after a few seconds
+}
+$('startSound').addEventListener('click', ()=>startShow(true));
+$('startSilent').addEventListener('click', ()=>startShow(false));
+$('skip').addEventListener('click', ()=>enterSite());
+$('enter').addEventListener('click', ()=>enterSite());
+addEventListener('keydown', e=>{ if(e.key !== 'Enter') return; if(!started) startShow(false); else enterSite(); });
+
+/* ----- go to the website ----- */
+let t0 = 0;
+function enterSite(){
+  if(entered) return;
+  entered = true; timers.forEach(clearTimeout); drone(false);
+  document.body.classList.add('entered');
+  intro.classList.add('done');
+  t0 = performance.now();
+  startReveal();
+  setTimeout(()=>{ running = false; intro.remove(); }, 1100);
+}
+
+/* ---------------------------------------------------------
+   3. SCROLL-REVEAL, counters, terminal, diagram
+   --------------------------------------------------------- */
+function startReveal(){
+  const io = new IntersectionObserver(entries=>{
+    entries.forEach(en=>{
+      if(!en.isIntersecting) return;
+      en.target.classList.add('in');
+      const c = en.target.querySelector('[data-count]'); if(c) countUp(c);
+      if(en.target.id === 'termbox') typeTerm();
+      io.unobserve(en.target);
+    });
+  },{threshold:.15});
+  document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+}
+function countUp(el){
+  const end = +el.dataset.count; let cur2 = 0, step2 = Math.max(1, Math.ceil(end/40));
+  const id = setInterval(()=>{ cur2 += step2; if(cur2 >= end){ cur2 = end; clearInterval(id); } el.textContent = cur2 + '+'; }, 35);
+}
+
+/* terminal that types itself */
+const termLines = [
+  ['c','# put the club website on the internet'],
+  ['p','$ ','aws s3 mb s3://mvjce-aws-club'],
+  ['ok','make_bucket: mvjce-aws-club'],
+  ['p','$ ','aws s3 sync . s3://mvjce-aws-club'],
+  ['ok','upload: ./index.html to s3://mvjce-aws-club/index.html'],
+  ['ok','upload: ./images/campus1.jpg ...'],
+  ['p','$ ','aws s3 website s3://mvjce-aws-club/ --index-document index.html'],
+  ['ok','website hosting enabled ✔'],
+  ['c','# lights out. the site is live.']
+];
+let termStarted = false;
+function typeTerm(){
+  if(termStarted) return; termStarted = true;
+  const pre = $('term'); let li = 0;
+  const cursor = '<span class="cur"></span>';
+  function nextLine(){
+    if(li >= termLines.length){ pre.innerHTML = pre.innerHTML.replace(cursor,'') + cursor; return; }
+    const L = termLines[li++], div = document.createElement('div'); pre.appendChild(div);
+    if(L[0] === 'p'){
+      let i = 0; const cmd = L[2];
+      (function tick(){ div.innerHTML = `<span class="p">${L[1]}</span>${cmd.slice(0,i)}${cursor}`; i++; if(i <= cmd.length) setTimeout(tick, 28); else { div.innerHTML = `<span class="p">${L[1]}</span>${cmd}`; setTimeout(nextLine, 380); } })();
+    } else { div.innerHTML = `<span class="${L[0]}">${L[1]}</span>`; setTimeout(nextLine, 320); }
+  }
+  nextLine();
+}
+/* architecture diagram: click or hover a box */
+const INFO = {
+  you:['YOU','A student opens the club website on a phone or laptop. Every click becomes a request.'],
+  cf:['CLOUDFRONT','A content delivery network. It keeps copies of your site close to visitors so pages load fast, wherever they are.'],
+  s3:['S3','Object storage. Your HTML, CSS, JavaScript and photos live here as files.'],
+  fn:['LAMBDA','Runs small pieces of your code only when needed, for example saving a sign-up form.'],
+  db:['DYNAMODB','A fast NoSQL database. It keeps things like the member list and event sign-ups.']
+};
+document.querySelectorAll('.node').forEach(nd=>{
+  const show = ()=>{
+    const d = INFO[nd.dataset.k];
+    $('info').innerHTML = `<b>${d[0]}</b>${d[1]}`;
+    document.querySelectorAll('.node').forEach(o=>o.classList.toggle('on', o===nd));
+  };
+  nd.addEventListener('mouseenter', show); nd.addEventListener('click', show);
+});
+
+/* ---------------------------------------------------------
+   4. BACKGROUND SPARKS, CURSOR FLOODLIGHT, LAP TIMER
+   --------------------------------------------------------- */
+const cv = $('dust'), cx = cv.getContext('2d');
+let W, H, P = [];
+function sizeCanvas(){
+  W = cv.width = innerWidth; H = cv.height = innerHeight;
+  P = Array.from({length: Math.min(80, W/16|0)}, ()=>({x:Math.random()*W, y:Math.random()*H, r:Math.random()*1.6+.4, v:Math.random()*.5+.15, a:Math.random()*.6+.2, h:Math.random()<.35}));
+}
+sizeCanvas(); addEventListener('resize', sizeCanvas);
+(function drawDust(){
+  cx.clearRect(0,0,W,H);
+  P.forEach(p=>{ p.y -= p.v; if(p.y < -5){ p.y = H+5; p.x = Math.random()*W; }
+    cx.beginPath(); cx.arc(p.x,p.y,p.r,0,7); cx.fillStyle = p.h ? `rgba(255,170,30,${p.a})` : `rgba(255,50,60,${p.a})`; cx.fill(); });
+  requestAnimationFrame(drawDust);
+})();
+const spot = $('spot'); let sx = mx, sy = my;
+(function follow(){ sx += (mx-sx)*.12; sy += (my-sy)*.12; spot.style.setProperty('--x', sx+'px'); spot.style.setProperty('--y', sy+'px'); requestAnimationFrame(follow); })();
+$('toggle').addEventListener('click', ()=>document.body.classList.toggle('nospot'));
+
+const lapEl = $('lap'), secFill = [...document.querySelectorAll('.sec i')];
+(function hudLoop(){
+  if(entered){
+    const ms = performance.now() - t0, m = Math.floor(ms/60000), s = Math.floor(ms/1000)%60, z = Math.floor(ms%1000);
+    lapEl.textContent = `${m}:${String(s).padStart(2,'0')}.${String(z).padStart(3,'0')}`;
+  }
+  const total = document.documentElement.scrollHeight - innerHeight, p = total > 0 ? scrollY/total : 0;
+  secFill.forEach((f,i)=>{ f.style.width = (clamp(p*3 - i)*100) + '%'; });
+  requestAnimationFrame(hudLoop);
+})();
+
+/* 3D orbit of race-weekend cards */
+const ring = $('ring'), stage = $('stage');
+const cards = [...ring.children], N = cards.length;
+let R = 380, rot = 0, vel = .15, dragging = false, lastX = 0;
+function layout(){ R = innerWidth < 700 ? 250 : 380; cards.forEach((c,i)=>{ c.dataset.a = i*360/N; c.style.transform = `rotateY(${i*360/N}deg) translateZ(${R}px)`; }); }
+layout(); addEventListener('resize', layout);
+(function orbit(){
+  if(!dragging){ rot += vel; vel += (.15 - vel)*.02; }
+  ring.style.transform = `translateZ(-${R}px) rotateY(${rot}deg)`;
+  cards.forEach(c=>{ const a = (+c.dataset.a + rot)*Math.PI/180; c.style.opacity = (.2 + .8*Math.pow((Math.cos(a)+1)/2, 1.4)).toFixed(3); });
+  requestAnimationFrame(orbit);
+})();
+stage.addEventListener('pointerdown', e=>{ dragging = true; lastX = e.clientX; });
+addEventListener('pointerup', ()=>{ dragging = false; });
+addEventListener('pointermove', e=>{ if(!dragging) return; const dx = e.clientX - lastX; lastX = e.clientX; rot += dx*.35; vel = dx*.35; });
+cards.forEach(c=>c.addEventListener('pointermove', e=>{ const r = c.getBoundingClientRect(); c.style.setProperty('--mx', (e.clientX-r.left)+'px'); c.style.setProperty('--my', (e.clientY-r.top)+'px'); }));
+document.querySelectorAll('.stat, .tile, .club').forEach(el=>{
+  el.addEventListener('pointermove', e=>{ const r = el.getBoundingClientRect(), x = (e.clientX-r.left)/r.width-.5, y = (e.clientY-r.top)/r.height-.5;
+    el.style.transition = 'transform .1s'; el.style.transform = `perspective(600px) rotateX(${-y*14}deg) rotateY(${x*14}deg) translateZ(8px)`; });
+  el.addEventListener('pointerleave', ()=>{ el.style.transition = ''; el.style.transform = ''; });
+});
+
+/* ---------------------------------------------------------
+   5. SCROLL STORY : a 3D race car driven by your scroll
+   --------------------------------------------------------- */
+(function(){
+  const sec = $('story'), cvs2 = $('storyCv');
+  const wl = $('wl'), wr = $('wr'), cl = $('cl'), cr = $('cr'), m1 = $('m1'), m2 = $('m2'), shint = $('shint');
+  const spdEl = $('spd'), gearEl = $('gear'), ledsEl = $('leds');
+  for(let i=0;i<15;i++) ledsEl.appendChild(document.createElement('i'));
+  const leds = [...ledsEl.children];
+
+  let G = null;
+  if (window.THREE) {
+    const renderer = new THREE.WebGLRenderer({canvas: cvs2, alpha: true, antialias: true});
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    const scene = new THREE.Scene(); scene.fog = new THREE.Fog(0x000000, 9, 30);
+    const cam = new THREE.PerspectiveCamera(42, 1, .1, 100);
+    let mobile = false;
+    function size(){ renderer.setSize(cvs2.clientWidth, cvs2.clientHeight, false); cam.aspect = cvs2.clientWidth/cvs2.clientHeight; cam.updateProjectionMatrix(); mobile = innerWidth < 800; }
+    size(); addEventListener('resize', size);
+
+    scene.add(new THREE.AmbientLight(0xffffff, .38));
+    const spotL = new THREE.SpotLight(0xffffff, 1.8, 30, .6, .5); spotL.position.set(0,10,1); scene.add(spotL, spotL.target);
+    const redL = new THREE.PointLight(0xff2a3c, 2.4, 28); redL.position.set(4,2.5,5); scene.add(redL);
+    const rimL = new THREE.PointLight(0xffffff, 1.3, 28); rimL.position.set(-5,2,-5); scene.add(rimL);
+    const underL = new THREE.PointLight(0xffa31a, 1.6, 7); underL.position.set(0,.15,0); scene.add(underL);
+
+    const bodyM = new THREE.MeshStandardMaterial({color:0xd1001c, metalness:.55, roughness:.32});
+    const darkM = new THREE.MeshStandardMaterial({color:0x0b0b0b, metalness:.7, roughness:.4});
+    const whiteM = new THREE.MeshStandardMaterial({color:0xf2f2f2, metalness:.3, roughness:.5});
+    const amberM = new THREE.MeshBasicMaterial({color:0xffa31a});
+    const car = new THREE.Group();
+    const add = (geo, mat, x,y,z, rx=0,ry=0,rz=0)=>{ const m = new THREE.Mesh(geo,mat); m.position.set(x,y,z); m.rotation.set(rx,ry,rz); car.add(m); return m; };
+    add(new THREE.BoxGeometry(.72,.34,2.5), bodyM, 0,.46,0);
+    add(new THREE.ConeGeometry(.22,1.7,18), bodyM, 0,.4,2.0, Math.PI/2,0,0);
+    add(new THREE.BoxGeometry(.1,.012,2.3), whiteM, 0,.64,.1);
+    add(new THREE.BoxGeometry(.4,.34,1.15), bodyM, -.56,.36,-.25);
+    add(new THREE.BoxGeometry(.4,.34,1.15), bodyM,  .56,.36,-.25);
+    add(new THREE.BoxGeometry(.32,.44,1.3), bodyM, 0,.78,-.55);
+    add(new THREE.BoxGeometry(.28,.2,.12), darkM, 0,.98,-.02);
+    add(new THREE.BoxGeometry(.42,.12,.62), darkM, 0,.66,.4);
+    const halo = add(new THREE.TorusGeometry(.26,.025,8,24,Math.PI), darkM, 0,.7,.5); halo.rotation.y = Math.PI/2;
+    add(new THREE.BoxGeometry(.05,.05,.5), darkM, 0,.9,.72, -.5);
+    add(new THREE.BoxGeometry(1.6,.04,3.5), darkM, 0,.1,-.1);
+    add(new THREE.BoxGeometry(2.1,.04,.5), darkM, 0,.12,2.4);
+    add(new THREE.BoxGeometry(1.9,.03,.3), bodyM, 0,.2,2.18);
+    add(new THREE.BoxGeometry(.04,.26,.62), bodyM, -1.06,.2,2.35);
+    add(new THREE.BoxGeometry(.04,.26,.62), bodyM,  1.06,.2,2.35);
+    add(new THREE.BoxGeometry(1.25,.05,.5), darkM, 0,.98,-1.6);
+    add(new THREE.BoxGeometry(1.25,.04,.3), bodyM, 0,1.1,-1.58);
+    add(new THREE.BoxGeometry(.05,.62,.6), bodyM, -.64,.85,-1.6);
+    add(new THREE.BoxGeometry(.05,.62,.6), bodyM,  .64,.85,-1.6);
+    add(new THREE.BoxGeometry(.07,.5,.12), darkM, 0,.74,-1.45);
+    add(new THREE.BoxGeometry(.9,.05,.5), darkM, 0,.3,-1.7);
+    add(new THREE.BoxGeometry(.5,.03,.04), amberM, 0,.1,2.62);                       // amber front-wing light strip
+    add(new THREE.BoxGeometry(.3,.03,.03), new THREE.MeshBasicMaterial({color:0xff2a3c}), 0,1.05,-1.88);  // rear light
+    const tyreM = new THREE.MeshStandardMaterial({color:0x050505, roughness:.9});
+    const rimM  = new THREE.MeshBasicMaterial({color:0xff2a3c});
+    const wheels = [];
+    function wheel(x,z,r,w){
+      const g = new THREE.Group();
+      const tyre = new THREE.Mesh(new THREE.CylinderGeometry(r,r,w,32), tyreM); tyre.rotation.z = Math.PI/2; g.add(tyre);
+      const rim = new THREE.Mesh(new THREE.CylinderGeometry(r*.58,r*.58,w+.02,24), rimM); rim.rotation.z = Math.PI/2; g.add(rim);
+      g.add(new THREE.Mesh(new THREE.BoxGeometry(w+.04,r*1.0,.07), whiteM));
+      g.add(new THREE.Mesh(new THREE.BoxGeometry(w+.04,.07,r*1.0), whiteM));
+      g.position.set(x,r,z); car.add(g); wheels.push(g);
+    }
+    wheel(-.98,-1.05,.44,.5); wheel(.98,-1.05,.44,.5); wheel(-.9,1.5,.38,.38); wheel(.9,1.5,.38,.38);
+    add(new THREE.BoxGeometry(1.0,.03,.05), darkM, 0,.3,1.5);
+    add(new THREE.BoxGeometry(1.0,.03,.05), darkM, 0,.3,-1.05);
+    scene.add(car);
+
+    const grid = new THREE.GridHelper(60, 60, 0xff2a3c, 0x3a0a0a);
+    grid.material.transparent = true; grid.material.opacity = .45; scene.add(grid);
+    const gc = document.createElement('canvas'); gc.width = gc.height = 128; const gx = gc.getContext('2d');
+    const gr = gx.createRadialGradient(64,64,0,64,64,64); gr.addColorStop(0,'rgba(255,110,50,.5)'); gr.addColorStop(.5,'rgba(255,60,40,.14)'); gr.addColorStop(1,'rgba(255,60,40,0)'); gx.fillStyle = gr; gx.fillRect(0,0,128,128);
+    const pool = new THREE.Mesh(new THREE.PlaneGeometry(9,9), new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(gc), transparent:true, blending:THREE.AdditiveBlending, depthWrite:false}));
+    pool.rotation.x = -Math.PI/2; pool.position.y = .012; scene.add(pool);
+
+    const NS = 280, sp = new Float32Array(NS*6), sc = new Float32Array(NS*6), sdt = [];
+    for(let i=0;i<NS;i++){
+      let x = (Math.random()-.5)*20; if(Math.abs(x) < 1.6) x += Math.sign(x||1)*1.6;
+      sdt.push({x, y:Math.random()*3.4+.06, z:(Math.random()-.5)*44, l:.6+Math.random()*2.2});
+      const am = Math.random() < .35, c = am ? [1,.64,.1] : [1,.2,.26];
+      for(let k=0;k<2;k++){ sc[i*6+k*3] = c[0]; sc[i*6+k*3+1] = c[1]; sc[i*6+k*3+2] = c[2]; }
+    }
+    const sg = new THREE.BufferGeometry();
+    sg.setAttribute('position', new THREE.BufferAttribute(sp,3)); sg.setAttribute('color', new THREE.BufferAttribute(sc,3));
+    const streaks = new THREE.LineSegments(sg, new THREE.LineBasicMaterial({vertexColors:true, transparent:true, opacity:.65}));
+    streaks.frustumCulled = false; scene.add(streaks);
+
+    let dist = 0, last = 0;
+    G = function(p, tm){
+      const v = ease(clamp(p/.72)), dt = Math.min(tm-last,.05) || .016; last = tm;
+      dist += (.03 + v*1.3)*dt*60*.5; grid.position.z = -(dist % 1);
+      wheels.forEach(w=>{ w.rotation.x += (.04 + v*.9)*dt*60*.6; });
+      car.position.y = Math.sin(tm*45)*.004*v; car.rotation.z = Math.sin(tm*3)*.004*v;
+      for(let i=0;i<NS;i++){
+        const s = sdt[i]; s.z -= (.05 + v*1.4)*dt*60*.6; if(s.z < -22) s.z += 44;
+        const L = s.l*(.4 + v*7);
+        sp[i*6] = s.x; sp[i*6+1] = s.y; sp[i*6+2] = s.z; sp[i*6+3] = s.x; sp[i*6+4] = s.y; sp[i*6+5] = s.z + L;
+      }
+      sg.attributes.position.needsUpdate = true; streaks.material.opacity = .15 + v*.6;
+      const th = .6 + p*5.3, Rd = (mobile ? 13 : 7.0) - ease(clamp((p-.85)/.15))*1.4;
+      const h = .9 + Math.sin(p*Math.PI)*1.5 + ease(clamp((p-.82)/.18))*.9;
+      cam.position.set(Math.sin(th)*Rd, h, Math.cos(th)*Rd); cam.position.x += Math.sin(tm*30)*.004*v;
+      cam.lookAt(0,1.05,.15); cam.fov = 40 + v*24; cam.updateProjectionMatrix();
+      redL.intensity = 2.4 + 7*Math.max(0, 1 - Math.abs(p-.05)/.04);
+      renderer.render(scene, cam);
+    };
+  }
+
+  let ps2 = 0, tt = 0;
+  (function frame(){
+    tt += .016;
+    const r = sec.getBoundingClientRect(), visible = r.bottom > 0 && r.top < innerHeight;
+    document.body.classList.toggle('instory', r.top < innerHeight*.5 && r.bottom > innerHeight*.5);
+    const target = clamp(-r.top/(r.height - innerHeight)); ps2 += (target - ps2)*.08;
+    if(visible){
+      const p = ps2, out = ease(clamp((p-.05)/.2));
+      wl.style.transform = `translate(${-out*45}vw,-50%)`; wr.style.transform = `translate(${out*45}vw,-50%)`;
+      wl.style.opacity = wr.style.opacity = 1 - clamp((p-.08)/.15);
+      cl.style.opacity = cr.style.opacity = 1 - clamp((p-.05)/.12);
+      const fade = (el,a,b,c,d)=>{ const o = clamp((p-a)/(b-a))*(1 - clamp((p-c)/(d-c))); el.style.opacity = o; el.style.transform = `translateY(${(1 - clamp((p-a)/(b-a)))*36}px)`; };
+      fade(m1,.24,.32,.46,.52); fade(m2,.64,.72,.88,.94);
+      shint.style.opacity = 1 - clamp(p/.04);
+      const v = ease(clamp(p/.72)), spd = Math.round(v*320), gear = spd < 4 ? 0 : Math.min(8, 1 + Math.floor(spd/40));
+      spdEl.textContent = String(spd).padStart(3,'0'); gearEl.textContent = gear === 0 ? 'N' : gear;
+      const rpm = gear === 0 ? clamp(p/.01)*.1 : clamp((spd - (gear-1)*40)/40), nl = Math.round(rpm*15);
+      leds.forEach((l,i)=>l.classList.toggle('on', i < nl));
+      if(G) G(p, tt);
+    }
+    requestAnimationFrame(frame);
+  })();
+})();
+
+if(matchMedia('(hover:none)').matches) document.body.classList.add('nospot');
+</script>
+</body>
+</html>
